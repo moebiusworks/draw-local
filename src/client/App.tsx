@@ -17,7 +17,7 @@ export function App() {
   const [selected, setSelected] = useState<string>();
   const [document, setDocument] = useState<unknown>();
   const [status, setStatus] = useState("Ready");
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const refresh = useCallback(async () => {
     const list = await request<FileInfo[]>("/api/files");
