@@ -20,6 +20,9 @@ const physical = (event: KeyboardEvent, code: string) =>
   event.code === code ||
   event.key.toLowerCase() === code.replace("Key", "").toLowerCase();
 
+const physicalNumber = (event: KeyboardEvent, number: 0 | 1) =>
+  event.code === `Digit${number}` || event.code === `Numpad${number}`;
+
 export const platform = (): Platform =>
   /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? "mac" : "other";
 
@@ -53,7 +56,7 @@ export const commands: Record<CommandId, Command> = {
       event.altKey &&
       !event.ctrlKey &&
       !event.metaKey &&
-      event.code === "Digit0",
+      physicalNumber(event, 0),
   },
   "browse-folders": {
     id: "browse-folders",
@@ -64,7 +67,7 @@ export const commands: Record<CommandId, Command> = {
       event.altKey &&
       !event.ctrlKey &&
       !event.metaKey &&
-      event.code === "Digit1",
+      physicalNumber(event, 1),
   },
 };
 

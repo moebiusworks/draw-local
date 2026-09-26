@@ -44,6 +44,20 @@ test("registry uses physical Alt chords and platform primary modifiers", () => {
     true,
   );
   assert.equal(
+    commands["panel-toggle"].matches(
+      event({ code: "Numpad0", altKey: true }),
+      "other",
+    ),
+    true,
+  );
+  assert.equal(
+    commands["browse-folders"].matches(
+      event({ code: "Numpad1", altKey: true }),
+      "mac",
+    ),
+    true,
+  );
+  assert.equal(
     commands.save.matches(event({ code: "KeyS", ctrlKey: true }), "other"),
     true,
   );
