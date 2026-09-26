@@ -91,6 +91,8 @@ See `docs/SECURITY_MODEL.md`.
 - `npm run check`
 - `npm run notices` — generate installed dependency notices
 
+Continuous integration runs automatically only for pushes to `main` (and release tags). It does not run for pull requests or ordinary branches; maintainers can use GitHub Actions' **Run workflow** control to run it manually on any ref.
+
 ## License and third-party notices
 
 draw-local is Apache-2.0 licensed. See `LICENSE`, `NOTICE`, and `THIRD_PARTY_NOTICES.md`.
