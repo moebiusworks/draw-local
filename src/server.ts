@@ -93,6 +93,17 @@ app.get(
   }),
 );
 app.get(
+  "/api/project/entries",
+  route(async (req, res) => {
+    res.json(
+      await workspace.listProjectEntries(
+        id(req),
+        req.query.path ? String(req.query.path) : "",
+      ),
+    );
+  }),
+);
+app.get(
   "/api/project/file",
   route(async (req, res) => {
     res.json(await workspace.readProjectFile(id(req), file(req)));

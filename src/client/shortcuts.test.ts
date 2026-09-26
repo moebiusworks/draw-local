@@ -1,0 +1,50 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { commands } from "./shortcuts";
+
+const event = (values: Partial<KeyboardEvent>) =>
+  ({
+    key: "",
+    code: "",
+    ctrlKey: false,
+    metaKey: false,
+    altKey: false,
+    ...values,
+  }) as KeyboardEvent;
+
+test("draw-local shortcuts have distinct platform chords", () => {
+  for (const value of ["mac", "other"] as const) {
+    const labels = Object.values(commands).map((command) =>
+      command.label(value),
+    );
+    assert.equal(new Set(labels).size, labels.length);
+  }
+});
+
+test("registry uses physical Alt chords and platform primary modifiers", () => {
+  assert.equal(
+    commands.new.matches(
+      event({ code: "KeyN", ctrlKey: true, altKey: true }),
+      "other",
+    ),
+    true,
+  );
+  assert.equal(
+    commands.new.matches(
+      event({ code: "KeyN", metaKey: true, altKey: true }),
+      "mac",
+    ),
+    true,
+  );
+  assert.equal(
+    commands["browse-folders"].matches(
+      event({ code: "Digit1", altKey: true, key: "¡" }),
+      "mac",
+    ),
+    true,
+  );
+  assert.equal(
+    commands.save.matches(event({ code: "KeyS", ctrlKey: true }), "other"),
+    true,
+  );
+});

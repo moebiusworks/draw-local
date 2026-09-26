@@ -2,6 +2,7 @@ import { Excalidraw } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { mergeDocument } from "./document";
+import { commandTooltip, commands, platform } from "./shortcuts";
 
 type Project = {
   id: string;
@@ -11,11 +12,24 @@ type Project = {
   error?: string;
 };
 type FileInfo = { path: string; revision: string };
-type Draft = FileInfo & { id: string };
+type Draft = FileInfo & { id: string; name?: string };
 type Open =
   | { kind: "draft"; id: string }
   | { kind: "file"; projectId: string; path: string };
 type Directory = { path: string; parent?: string; entries: string[] };
+type ProjectEntry = {
+  name: string;
+  path: string;
+  kind: "directory" | "file";
+  revision?: string;
+};
+type Notice = {
+  name: string;
+  version: string;
+  license: string;
+  repository?: string;
+  notices: { name: string; text: string }[];
+};
 const emptyDoc = {
   type: "excalidraw",
   version: 2,
@@ -28,6 +42,112 @@ const key = (open: Open) =>
   open.kind === "draft"
     ? `draft:${open.id}`
     : `project:${open.projectId}:${open.path}`;
+
+function Icon({
+  name,
+}: {
+  name: "new" | "save" | "save-as" | "panel" | "folder" | "github" | "licenses";
+}) {
+  const paths = {
+    new: (
+      <>
+        <path d="M12 5v14M5 12h14" />
+      </>
+    ),
+    save: (
+      <>
+        <path d="M5 4h12l2 2v14H5z" />
+        <path d="M8 4v6h8V4M8 19v-5h8v5" />
+      </>
+    ),
+    "save-as": (
+      <>
+        <path d="M5 4h12l2 2v14H5z" />
+        <path d="M8 4v6h8V4M12 13v5m-2-2 2 2 2-2" />
+      </>
+    ),
+    panel: (
+      <>
+        <path d="M4 5h16v14H4zM10 5v14M7 12h.01" />
+      </>
+    ),
+    folder: (
+      <>
+        <path d="M3 7h7l2 2h9v10H3z" />
+      </>
+    ),
+    github: (
+      <path d="M12 3a9 9 0 0 0-2.85 17.54c.45.08.62-.2.62-.43v-1.68c-2.53.55-3.06-1.08-3.06-1.08-.42-1.07-1.01-1.35-1.01-1.35-.83-.56.06-.55.06-.55.92.06 1.4.94 1.4.94.82 1.4 2.14 1 2.66.77.08-.59.32-1 .58-1.23-2.02-.23-4.15-1.01-4.15-4.5 0-1 .35-1.8.93-2.44-.09-.23-.4-1.16.09-2.42 0 0 .76-.24 2.48.93A8.6 8.6 0 0 1 12 6.3c.76 0 1.52.1 2.23.3 1.72-1.17 2.48-.93 2.48-.93.49 1.26.18 2.19.09 2.42.58.64.93 1.45.93 2.44 0 3.5-2.14 4.27-4.17 4.5.33.28.62.82.62 1.65v2.44c0 .24.16.52.63.43A9 9 0 0 0 12 3Z" />
+    ),
+    licenses: (
+      <>
+        <path d="M6 3h9l3 3v15H6z" />
+        <path d="M15 3v4h3M9 11h6M9 15h6" />
+      </>
+    ),
+  };
+  return (
+    <svg
+      className="icon"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {paths[name]}
+    </svg>
+  );
+}
+
+function IconButton({
+  icon,
+  command,
+  disabled,
+  disabledReason,
+  onClick,
+  revealShortcut,
+}: {
+  icon: "new" | "save" | "save-as" | "panel" | "folder" | "github" | "licenses";
+  command?: keyof typeof commands;
+  disabled?: boolean;
+  disabledReason?: string;
+  onClick: () => void;
+  revealShortcut?: boolean;
+}) {
+  const currentPlatform = platform();
+  const definition = command ? commands[command] : undefined;
+  const label =
+    definition?.name ??
+    (icon === "github"
+      ? "draw-local on GitHub"
+      : icon === "licenses"
+        ? "Licenses"
+        : "Command");
+  const tooltip = definition
+    ? commandTooltip(
+        definition,
+        currentPlatform,
+        disabled ? disabledReason : undefined,
+      )
+    : label;
+  return (
+    <button
+      className="icon-button"
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      aria-keyshortcuts={definition?.ariaKeyShortcuts(currentPlatform)}
+      data-tooltip={tooltip}
+    >
+      <Icon name={icon} />
+      {revealShortcut && definition && !disabled && (
+        <span className="shortcut-hint" aria-hidden="true">
+          {definition.label(currentPlatform)}
+        </span>
+      )}
+    </button>
+  );
+}
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -50,6 +170,10 @@ export function App() {
   const [projects, setProjects] = useState<Project[]>([]),
     [projectId, setProjectId] = useState<string>(),
     [files, setFiles] = useState<FileInfo[]>([]),
+    [projectEntries, setProjectEntries] = useState<
+      Record<string, ProjectEntry[]>
+    >({}),
+    [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set()),
     [drafts, setDrafts] = useState<Draft[]>([]),
     [open, setOpen] = useState<Open>(),
     [document, setDocument] = useState<unknown>(),
@@ -63,7 +187,26 @@ export function App() {
       available: boolean;
       branch?: string;
       statuses: Record<string, { label: string }>;
-    }>({ available: false, statuses: {} });
+    }>({ available: false, statuses: {} }),
+    [theme, setTheme] = useState<"light" | "dark">(() =>
+      window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light",
+    ),
+    [panelCollapsed, setPanelCollapsed] = useState(
+      () => localStorage.getItem("draw-local.panel-collapsed") === "true",
+    ),
+    [panelWidth, setPanelWidth] = useState(
+      () => Number(localStorage.getItem("draw-local.panel-width")) || 280,
+    ),
+    [showShortcuts, setShowShortcuts] = useState(false),
+    [licenses, setLicenses] = useState(false),
+    [notices, setNotices] = useState<Notice[]>([]),
+    [noticeSearch, setNoticeSearch] = useState(""),
+    [selectedNotice, setSelectedNotice] = useState<string>("draw-local");
+  const [renamingDraft, setRenamingDraft] = useState<string>(),
+    [draftName, setDraftName] = useState(""),
+    [draftNameError, setDraftNameError] = useState("");
   const openRef = useRef<Open | undefined>(undefined);
   const documents = useRef(new Map<string, unknown>()),
     revisions = useRef(new Map<string, string>()),
@@ -85,20 +228,15 @@ export function App() {
     setDrafts(nextDrafts);
     const selected = id ?? projectIdRef.current;
     if (selected) {
-      const [nextFiles, context] = await Promise.all([
-        request<FileInfo[]>(
-          `/api/project/files?projectId=${encodeURIComponent(selected)}`,
-        ),
-        request<typeof git>(
-          `/api/project/git?projectId=${encodeURIComponent(selected)}`,
-        ),
-      ]);
+      const context = await request<typeof git>(
+        `/api/project/git?projectId=${encodeURIComponent(selected)}`,
+      );
       if (
         sequence !== refreshSequence.current ||
         selected !== projectIdRef.current
       )
         return;
-      setFiles(nextFiles.filter((item) => item.path.endsWith(".excalidraw")));
+      setFiles([]);
       setGit(context);
     }
   }, []);
@@ -110,6 +248,31 @@ export function App() {
     },
     [refresh],
   );
+  const loadProjectEntries = useCallback(async (id: string, relative = "") => {
+    const items = await request<ProjectEntry[]>(
+      `/api/project/entries?projectId=${encodeURIComponent(id)}${relative ? `&path=${encodeURIComponent(relative)}` : ""}`,
+    );
+    setProjectEntries((entries) => ({
+      ...entries,
+      [`${id}:${relative}`]: items,
+    }));
+  }, []);
+  const toggleProjectEntry = async (id: string, relative = "") => {
+    const identity = `${id}:${relative}`;
+    setExpandedEntries((current) => {
+      const next = new Set(current);
+      if (next.has(identity)) next.delete(identity);
+      else next.add(identity);
+      return next;
+    });
+    if (!projectEntries[identity]) {
+      try {
+        await loadProjectEntries(id, relative);
+      } catch (error) {
+        setStatus(`Folder failed: ${(error as Error).message}`);
+      }
+    }
+  };
   const load = useCallback(async (next: Open) => {
     const identity = key(next);
     if (documentStates.current.get(identity) === "conflict") {
@@ -130,6 +293,9 @@ export function App() {
               `/api/project/file?projectId=${encodeURIComponent(next.projectId)}&path=${encodeURIComponent(next.path)}`,
             );
       documents.current.set(identity, result.document);
+      const savedTheme = (result.document as { appState?: { theme?: unknown } })
+        .appState?.theme;
+      if (savedTheme === "light" || savedTheme === "dark") setTheme(savedTheme);
       revisions.current.set(identity, result.revision);
       documentStates.current.set(identity, "saved");
       openRef.current = next;
@@ -244,7 +410,9 @@ export function App() {
   const newDraft = async () => {
     const draft = await request<Draft>("/api/drafts", {
       method: "POST",
-      body: JSON.stringify({ document: emptyDoc }),
+      body: JSON.stringify({
+        document: { ...emptyDoc, appState: { theme } },
+      }),
     });
     await refresh();
     await load({ kind: "draft", id: draft.id });
@@ -290,8 +458,19 @@ export function App() {
   };
   const openDestination = () => {
     setDestinationProject(projectId ?? "");
+    const suggestedName = (
+      (open?.kind === "draft"
+        ? drafts.find((draft) => draft.id === open.id)?.name
+        : undefined) ?? "Untitled draft"
+    )
+      .trim()
+      .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
+      .replace(/\s+/g, " ")
+      .slice(0, 100);
     setDestinationPath(
-      open?.kind === "file" ? open.path : "untitled.excalidraw",
+      open?.kind === "file"
+        ? open.path
+        : `${suggestedName || "untitled"}.excalidraw`,
     );
     setDestination(true);
   };
@@ -354,6 +533,8 @@ export function App() {
         identity,
         mergeDocument(old, elements, appState, binaryFiles),
       );
+      if (appState.theme === "light" || appState.theme === "dark")
+        setTheme(appState.theme);
       setStatus("Unsaved");
       const timer = timers.current.get(identity);
       if (timer) clearTimeout(timer);
@@ -377,9 +558,9 @@ export function App() {
             "input, textarea, select, [contenteditable=true], .dialog",
           ),
         );
+      const currentPlatform = platform();
       if (
-        (event.ctrlKey || event.metaKey) &&
-        event.key.toLowerCase() === "s" &&
+        commands.save.matches(event, currentPlatform) &&
         openRef.current &&
         !event.defaultPrevented
       ) {
@@ -388,20 +569,177 @@ export function App() {
         else void flush(openRef.current);
       }
       if (
-        event.ctrlKey &&
-        event.altKey &&
-        event.key.toLowerCase() === "n" &&
+        commands.new.matches(event, currentPlatform) &&
         !event.defaultPrevented &&
-        !editable
+        !editable &&
+        !destination &&
+        !picker &&
+        !licenses
       ) {
         event.preventDefault();
         void newDraft();
       }
+      if (
+        commands["panel-toggle"].matches(event, currentPlatform) &&
+        !event.defaultPrevented &&
+        !editable &&
+        !destination &&
+        !picker &&
+        !licenses
+      ) {
+        event.preventDefault();
+        setPanelCollapsed((value) => !value);
+      }
+      if (
+        commands["browse-folders"].matches(event, currentPlatform) &&
+        !event.defaultPrevented &&
+        !editable &&
+        !destination &&
+        !picker &&
+        !licenses
+      ) {
+        event.preventDefault();
+        void openPicker();
+      }
     };
+    const modifierDown = (event: KeyboardEvent) => {
+      if (
+        (platform() === "mac" && event.metaKey) ||
+        (platform() === "other" && event.ctrlKey)
+      )
+        setShowShortcuts(true);
+    };
+    const modifierUp = () => setShowShortcuts(false);
     addEventListener("keydown", handler);
-    return () => removeEventListener("keydown", handler);
-  }, [flush, open]);
+    addEventListener("keydown", modifierDown);
+    addEventListener("keyup", modifierUp);
+    addEventListener("blur", modifierUp);
+    window.document.addEventListener("visibilitychange", modifierUp);
+    return () => {
+      removeEventListener("keydown", handler);
+      removeEventListener("keydown", modifierDown);
+      removeEventListener("keyup", modifierUp);
+      removeEventListener("blur", modifierUp);
+      window.document.removeEventListener("visibilitychange", modifierUp);
+    };
+  }, [flush, open, destination, picker, licenses]);
+  useEffect(
+    () =>
+      localStorage.setItem(
+        "draw-local.panel-collapsed",
+        String(panelCollapsed),
+      ),
+    [panelCollapsed],
+  );
+  useEffect(
+    () =>
+      localStorage.setItem(
+        "draw-local.panel-width",
+        String(Math.min(420, Math.max(240, panelWidth))),
+      ),
+    [panelWidth],
+  );
+  useEffect(() => {
+    if (!licenses || notices.length) return;
+    void request<Notice[]>("/third-party-notices.json")
+      .then(setNotices)
+      .catch((error: Error) =>
+        setStatus(`License information failed to load: ${error.message}`),
+      );
+  }, [licenses, notices.length]);
   const activeProject = projects.find((project) => project.id === projectId);
+  const renderProjectEntries = (id: string, relative = "", level = 2) => {
+    const identity = `${id}:${relative}`;
+    if (!expandedEntries.has(identity)) return null;
+    return projectEntries[identity]?.map((entry) => {
+      const childIdentity = `${id}:${entry.path}`;
+      if (entry.kind === "directory") {
+        const expanded = expandedEntries.has(childIdentity);
+        return (
+          <div
+            key={childIdentity}
+            role="treeitem"
+            aria-level={level}
+            aria-expanded={expanded}
+            className="tree-row directory-row"
+          >
+            <button
+              type="button"
+              className="tree-button"
+              onClick={() => void toggleProjectEntry(id, entry.path)}
+            >
+              <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
+              {entry.name}
+            </button>
+            <div role="group">
+              {renderProjectEntries(id, entry.path, level + 1)}
+            </div>
+          </div>
+        );
+      }
+      const label =
+        git.statuses[entry.path]?.label ?? (git.available ? "Committed" : "");
+      return (
+        <button
+          key={childIdentity}
+          type="button"
+          role="treeitem"
+          aria-level={level}
+          aria-current={
+            open?.kind === "file" &&
+            open.projectId === id &&
+            open.path === entry.path
+              ? "page"
+              : undefined
+          }
+          className={
+            open?.kind === "file" &&
+            open.projectId === id &&
+            open.path === entry.path
+              ? "file active"
+              : "file"
+          }
+          title={label}
+          onClick={() => {
+            selectProject(id);
+            void load({ kind: "file", projectId: id, path: entry.path });
+          }}
+        >
+          {label && (
+            <span className="git-icon" aria-hidden="true">
+              {label === "Conflicted"
+                ? "⚠"
+                : label === "Untracked"
+                  ? "?"
+                  : label === "Ignored"
+                    ? "⊘"
+                    : label.includes("Staged")
+                      ? "◆"
+                      : label.includes("Modified")
+                        ? "●"
+                        : "✓"}
+            </span>
+          )}
+          {entry.name}
+        </button>
+      );
+    });
+  };
+  const resizePanel = (event: React.PointerEvent<HTMLDivElement>) => {
+    const startX = event.clientX;
+    const startWidth = panelWidth;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const move = (next: PointerEvent) =>
+      setPanelWidth(
+        Math.min(420, Math.max(240, startWidth + next.clientX - startX)),
+      );
+    const up = () => {
+      removeEventListener("pointermove", move);
+      removeEventListener("pointerup", up);
+    };
+    addEventListener("pointermove", move);
+    addEventListener("pointerup", up);
+  };
   const renameOpen = async () => {
     if (open?.kind !== "file") return;
     const next = window.prompt("New filename", open.path);
@@ -429,6 +767,49 @@ export function App() {
       setStatus(`Rename failed: ${(error as Error).message}`);
     }
   };
+  const beginDraftRename = (draft: Draft) => {
+    setRenamingDraft(draft.id);
+    setDraftName(draft.name ?? "Untitled draft");
+    setDraftNameError("");
+  };
+  const commitDraftRename = async (draft: Draft) => {
+    const name = draftName.trim();
+    if (!name) return setDraftNameError("A draft name is required.");
+    if (name.length > 100)
+      return setDraftNameError("Draft names must be 100 characters or fewer.");
+    const target: Open = { kind: "draft", id: draft.id };
+    const identity = key(target);
+    try {
+      const current = documents.current.get(identity);
+      const loaded = current
+        ? undefined
+        : await request<{ document: unknown; revision: string }>(
+            `/api/draft/${encodeURIComponent(draft.id)}`,
+          );
+      const saved = current ?? loaded!.document;
+      if (!current) {
+        documents.current.set(identity, saved);
+        revisions.current.set(identity, loaded!.revision);
+      }
+      const next = {
+        ...(saved as Record<string, unknown>),
+        appState: {
+          ...((saved as { appState?: Record<string, unknown> }).appState ?? {}),
+          name,
+        },
+      };
+      documents.current.set(identity, next);
+      await persist(target);
+      setDrafts((items) =>
+        items.map((item) => (item.id === draft.id ? { ...item, name } : item)),
+      );
+      setRenamingDraft(undefined);
+      setDraftNameError("");
+      if (open?.kind === "draft" && open.id === draft.id) setDocument(next);
+    } catch (error) {
+      setDraftNameError(`Rename failed: ${(error as Error).message}`);
+    }
+  };
   const deleteOpen = async () => {
     if (open?.kind !== "file" || !window.confirm(`Delete ${open.path}?`))
       return;
@@ -450,122 +831,204 @@ export function App() {
     }
   };
   return (
-    <div className="shell">
-      <aside className="sidebar">
-        <div className="brand">
+    <div
+      className={`shell ${panelCollapsed ? "panel-collapsed" : ""}`}
+      data-theme={theme}
+      style={
+        {
+          "--panel-width": `${Math.min(420, Math.max(240, panelWidth))}px`,
+        } as React.CSSProperties
+      }
+    >
+      <aside className="sidebar" aria-label="Workspace explorer">
+        <div className="expanded-only brand">
           <strong>draw-local</strong>
           <span>Git-friendly Excalidraw</span>
         </div>
-        <div className="actions">
-          <button onClick={() => void newDraft()}>New</button>
-          <button
+        <div className="actions" aria-label="Drawing commands">
+          <IconButton
+            icon="new"
+            command="new"
+            onClick={() => void newDraft()}
+            revealShortcut={showShortcuts}
+          />
+          <IconButton
+            icon="save"
+            command="save"
             disabled={!open}
+            disabledReason="Open a drawing first"
             onClick={() =>
-              open?.kind === "draft" ? openDestination() : void flush(open)
+              open?.kind === "draft"
+                ? openDestination()
+                : open && void flush(open)
             }
-          >
-            Save
-          </button>
-          <button
+            revealShortcut={showShortcuts}
+          />
+          <IconButton
+            icon="save-as"
             disabled={!open || open.kind !== "file"}
+            disabledReason="Save a drawing first"
             onClick={openDestination}
-          >
-            Save As
-          </button>
+          />
+          <span className="expanded-only action-separator" />
           <button
+            className="expanded-only text-button"
             disabled={open?.kind !== "file"}
             onClick={() => void renameOpen()}
           >
             Rename
           </button>
           <button
+            className="expanded-only text-button"
             disabled={open?.kind !== "file"}
             onClick={() => void deleteOpen()}
           >
             Delete
           </button>
         </div>
-        <label className="project">
-          Project{" "}
-          <select
-            title={activeProject?.path}
-            value={projectId}
-            onChange={(event) => selectProject(event.target.value)}
-          >
-            {projects.map((project) => (
-              <option
-                key={project.id}
-                value={project.id}
-                disabled={!project.available}
-              >
-                {project.name}
-                {project.available ? "" : " (unavailable)"}
-              </option>
-            ))}
-          </select>
-          <span className="project-path" title={activeProject?.path}>
-            {activeProject?.path}
+        <div className="expanded-only project">
+          <div className="section-heading">Projects</div>
+          <span className="project-path">
+            Registered project roots appear below.
           </span>
-          <button onClick={() => void openPicker()}>Browse folders</button>
-        </label>
-        {git.available && <div className="git">Branch: {git.branch}</div>}
-        <div className="files">
+        </div>
+        <div className="expanded-only git">
+          {git.available
+            ? `Branch: ${git.branch ?? "Detached HEAD"}`
+            : activeProject
+              ? "Not a Git repository"
+              : ""}
+        </div>
+        <div className="expanded-only files">
           <strong>Drafts</strong>
           {drafts.map((draft) => (
-            <button
-              key={draft.id}
-              className={
-                open?.kind === "draft" && open.id === draft.id
-                  ? "file active"
-                  : "file"
-              }
-              onClick={() => void load({ kind: "draft", id: draft.id })}
-            >
-              Untitled draft
-            </button>
-          ))}
-          <strong>Files</strong>
-          {files.map((item) => {
-            const label =
-              git.statuses[item.path]?.label ??
-              (git.available ? "Committed" : "");
-            const icon =
-              label === "Conflicted"
-                ? "⚠"
-                : label === "Untracked"
-                  ? "?"
-                  : label === "Ignored"
-                    ? "⊘"
-                    : label.includes("Staged")
-                      ? "◆"
-                      : label.includes("Modified")
-                        ? "●"
-                        : "✓";
-            return (
+            <div key={draft.id} className="draft-row">
+              {renamingDraft === draft.id ? (
+                <input
+                  aria-label="Draft name"
+                  autoFocus
+                  value={draftName}
+                  onChange={(event) => setDraftName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") void commitDraftRename(draft);
+                    if (event.key === "Escape") setRenamingDraft(undefined);
+                  }}
+                  onBlur={() => void commitDraftRename(draft)}
+                  aria-describedby={
+                    draftNameError ? "draft-name-error" : undefined
+                  }
+                />
+              ) : (
+                <button
+                  className={
+                    open?.kind === "draft" && open.id === draft.id
+                      ? "file active"
+                      : "file"
+                  }
+                  onClick={() => void load({ kind: "draft", id: draft.id })}
+                  onKeyDown={(event) => {
+                    if (
+                      (platform() === "mac" && event.key === "Enter") ||
+                      (platform() === "other" && event.key === "F2")
+                    ) {
+                      event.preventDefault();
+                      beginDraftRename(draft);
+                    }
+                  }}
+                >
+                  {draft.name ?? "Untitled draft"}
+                </button>
+              )}
+              {renamingDraft === draft.id && draftNameError && (
+                <span id="draft-name-error" className="inline-error">
+                  {draftNameError}
+                </span>
+              )}
               <button
-                key={item.path}
-                title={label}
-                aria-label={`${item.path}: ${label}`}
-                className={
-                  open?.kind === "file" &&
-                  open.projectId === projectId &&
-                  open.path === item.path
-                    ? "file active"
-                    : "file"
-                }
-                onClick={() =>
-                  projectId &&
-                  void load({ kind: "file", projectId, path: item.path })
-                }
+                className="draft-rename text-button"
+                type="button"
+                aria-label={`Rename ${draft.name ?? "Untitled draft"}`}
+                onClick={() => beginDraftRename(draft)}
               >
-                {git.available && <span className="git-icon">{icon}</span>}
-                {item.path}
+                Rename
               </button>
-            );
-          })}
+            </div>
+          ))}
+          <strong>Projects</strong>
+          <div role="tree" aria-label="Project explorer">
+            {projects.map((project) => {
+              const rootIdentity = `${project.id}:`;
+              const expanded = expandedEntries.has(rootIdentity);
+              return (
+                <div
+                  key={project.id}
+                  role="treeitem"
+                  aria-level={1}
+                  aria-expanded={project.available ? expanded : undefined}
+                  className="tree-row project-root"
+                >
+                  <button
+                    type="button"
+                    className={
+                      project.id === projectId
+                        ? "tree-button active"
+                        : "tree-button"
+                    }
+                    disabled={!project.available}
+                    title={project.path}
+                    onClick={() => {
+                      selectProject(project.id);
+                      void toggleProjectEntry(project.id);
+                    }}
+                  >
+                    <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
+                    {project.name}
+                    {project.available ? "" : " (unavailable)"}
+                  </button>
+                  <div role="group">{renderProjectEntries(project.id)}</div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-        <div className="status">{status}</div>
+        <div className="utility-actions">
+          <IconButton
+            icon="panel"
+            command="panel-toggle"
+            onClick={() => setPanelCollapsed((value) => !value)}
+            revealShortcut={showShortcuts}
+          />
+          <IconButton
+            icon="folder"
+            command="browse-folders"
+            onClick={() => void openPicker()}
+            revealShortcut={showShortcuts}
+          />
+          <a
+            className="icon-button"
+            href="https://github.com/moebiusworks/draw-local"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="draw-local on GitHub"
+            data-tooltip="draw-local on GitHub"
+          >
+            <Icon name="github" />
+          </a>
+          <IconButton icon="licenses" onClick={() => setLicenses(true)} />
+        </div>
+        <div className="expanded-only status" role="status">
+          {status}
+        </div>
       </aside>
+      {!panelCollapsed && (
+        <div
+          className="panel-resizer"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize project panel"
+          onPointerDown={resizePanel}
+        />
+      )}
       <main className="canvas">
         {open && document ? (
           <Excalidraw
@@ -673,6 +1136,91 @@ export function App() {
                 Use this folder
               </button>
               <button onClick={() => setPicker(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
+        {licenses && (
+          <div
+            className="dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="licenses-title"
+          >
+            <div className="license-viewer">
+              <div className="dialog-heading">
+                <h2 id="licenses-title">Licenses</h2>
+                <button
+                  className="text-button"
+                  type="button"
+                  onClick={() => setLicenses(false)}
+                >
+                  Close
+                </button>
+              </div>
+              <input
+                autoFocus
+                aria-label="Search licenses"
+                placeholder="Search packages"
+                value={noticeSearch}
+                onChange={(event) => setNoticeSearch(event.target.value)}
+              />
+              <div className="license-content">
+                <div
+                  className="license-list"
+                  role="listbox"
+                  aria-label="Packages"
+                >
+                  {notices
+                    .filter((notice) =>
+                      `${notice.name} ${notice.license}`
+                        .toLowerCase()
+                        .includes(noticeSearch.toLowerCase()),
+                    )
+                    .map((notice) => (
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={selectedNotice === notice.name}
+                        className={
+                          selectedNotice === notice.name ? "active" : ""
+                        }
+                        key={notice.name}
+                        onClick={() => setSelectedNotice(notice.name)}
+                      >
+                        {notice.name}
+                        <small>
+                          {notice.version} · {notice.license}
+                        </small>
+                      </button>
+                    ))}
+                </div>
+                {(() => {
+                  const notice =
+                    notices.find((item) => item.name === selectedNotice) ??
+                    notices[0];
+                  return notice ? (
+                    <article className="license-detail">
+                      <h3>
+                        {notice.name} <small>{notice.version}</small>
+                      </h3>
+                      <p>License: {notice.license}</p>
+                      {notice.repository && (
+                        <p>Repository: {notice.repository}</p>
+                      )}
+                      {notice.notices.map((item) => (
+                        <section key={item.name}>
+                          <h4>{item.name}</h4>
+                          <pre>{item.text}</pre>
+                        </section>
+                      ))}
+                    </article>
+                  ) : (
+                    <p className="license-detail">
+                      Loading locally bundled license information…
+                    </p>
+                  );
+                })()}
+              </div>
             </div>
           </div>
         )}

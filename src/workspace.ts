@@ -20,7 +20,13 @@ export type Project = {
   available: boolean;
   error?: string;
 };
-export type Draft = WorkspaceFile & { id: string };
+export type Draft = WorkspaceFile & { id: string; name?: string };
+export type ProjectEntry = {
+  name: string;
+  path: string;
+  kind: "directory" | "file";
+  revision?: string;
+};
 type StoredProject = Pick<Project, "id" | "path" | "name">;
 const json = (value: unknown) => JSON.stringify(value, null, 2) + "\n";
 
@@ -332,6 +338,45 @@ export class Workspace {
   async listProjectFiles(id: string) {
     return this.listRoot(await this.projectRoot(id));
   }
+  async listProjectEntries(id: string, relative = ""): Promise<ProjectEntry[]> {
+    const root = await this.projectRoot(id);
+    if (
+      path.isAbsolute(relative) ||
+      relative.replaceAll("\\", "/").split("/").includes("..")
+    )
+      throw new Error("Path must be project-relative.");
+    const directory = relative ? this.resolve(root, relative) : root;
+    await this.assertNoSymlink(root, directory);
+    if (!(await fs.stat(directory)).isDirectory())
+      throw new Error("Path is not a directory.");
+    const entries = await fs.readdir(directory, { withFileTypes: true });
+    return Promise.all(
+      entries
+        .filter(
+          (entry) =>
+            !entry.isSymbolicLink() &&
+            !entry.name.startsWith(".") &&
+            ![".git", "node_modules"].includes(entry.name) &&
+            (entry.isDirectory() ||
+              extensions.has(path.extname(entry.name).toLowerCase())),
+        )
+        .map(async (entry) => {
+          const child = relative ? `${relative}/${entry.name}` : entry.name;
+          if (entry.isDirectory())
+            return {
+              name: entry.name,
+              path: child,
+              kind: "directory" as const,
+            };
+          return {
+            name: entry.name,
+            path: child,
+            kind: "file" as const,
+            revision: (await this.info(root, child)).revision,
+          };
+        }),
+    ).then((items) => items.sort((a, b) => a.name.localeCompare(b.name)));
+  }
   private async readRoot(root: string, relative: string) {
     this.assertFile(relative);
     const target = this.resolve(root, relative);
@@ -421,14 +466,34 @@ export class Workspace {
       undefined,
       true,
     );
-    return { id, ...(await this.info(this.draftsPath, `${id}.excalidraw`)) };
+    return {
+      id,
+      ...(await this.draftInfo(`${id}.excalidraw`)),
+    };
+  }
+  private async draftInfo(
+    relative: string,
+  ): Promise<WorkspaceFile & { name?: string }> {
+    const info = await this.info(this.draftsPath, relative);
+    const value = JSON.parse(
+      await fs.readFile(this.resolve(this.draftsPath, relative), "utf8"),
+    ) as { appState?: { name?: unknown } };
+    const name = value.appState?.name;
+    return {
+      ...info,
+      ...(typeof name === "string" && name.trim()
+        ? { name: name.trim().slice(0, 100) }
+        : {}),
+    };
   }
   async listDrafts(): Promise<Draft[]> {
     await this.init();
-    return (await this.listRoot(this.draftsPath)).map((file) => ({
-      id: path.basename(file.path, ".excalidraw"),
-      ...file,
-    }));
+    return Promise.all(
+      (await this.listRoot(this.draftsPath)).map(async (file) => ({
+        id: path.basename(file.path, ".excalidraw"),
+        ...(await this.draftInfo(file.path)),
+      })),
+    );
   }
   async readDraft(id: string) {
     if (!/^[a-f0-9-]{36}$/i.test(id)) throw new Error("Invalid draft ID.");

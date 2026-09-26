@@ -159,6 +159,30 @@ test("projects and drafts persist separately and first save is exclusive", async
   }
 });
 
+test("draft display names are persisted without changing draft identity", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-draft-name-"));
+  try {
+    const ws = new Workspace(root, isolated(root));
+    const created = await ws.createDraft({
+      ...doc,
+      appState: { name: "  Roadmap  " },
+    });
+    assert.equal((await ws.listDrafts())[0]?.id, created.id);
+    assert.equal((await ws.listDrafts())[0]?.name, "Roadmap");
+    await ws.writeDraft(
+      created.id,
+      { ...doc, appState: { name: "Architecture" } },
+      created.revision,
+    );
+    assert.deepEqual(
+      (await ws.listDrafts()).map(({ id, name }) => ({ id, name })),
+      [{ id: created.id, name: "Architecture" }],
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("project writes reject an external revision change", async () => {
   const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-revision-"));
   const root = path.join(base, "project");
@@ -304,6 +328,48 @@ test("folder browsing omits hidden directories", async () => {
     assert.deepEqual(listing.entries, ["visible"]);
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("project tree entries are lazy, scoped, and do not follow links", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-tree-"));
+  const outside = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-tree-outside-"),
+  );
+  try {
+    await mkdir(path.join(root, "nested"));
+    await mkdir(path.join(root, ".hidden"));
+    await writeFile(path.join(root, "drawing.excalidraw"), JSON.stringify(doc));
+    await writeFile(
+      path.join(root, "nested", "inside.excalidraw"),
+      JSON.stringify(doc),
+    );
+    await symlink(outside, path.join(root, "outside"), "dir");
+    const ws = new Workspace(root, isolated(root));
+    await ws.init();
+    const [project] = await ws.listProjects();
+    assert.deepEqual(
+      (await ws.listProjectEntries(project!.id)).map(({ name, kind }) => ({
+        name,
+        kind,
+      })),
+      [
+        { name: "drawing.excalidraw", kind: "file" },
+        { name: "nested", kind: "directory" },
+      ],
+    );
+    assert.deepEqual(
+      (await ws.listProjectEntries(project!.id, "nested")).map(
+        (item) => item.path,
+      ),
+      ["nested/inside.excalidraw"],
+    );
+    await assert.rejects(() =>
+      ws.listProjectEntries(project!.id, "../outside"),
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
   }
 });
 
