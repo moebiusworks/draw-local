@@ -4,6 +4,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import { Lock, openLock } from "@lickle/lock";
 
 const execFileAsync = promisify(execFile);
 const extensions = new Set([".excalidraw", ".excalidrawlib"]);
@@ -116,89 +117,74 @@ export class Workspace {
       return undefined;
     }
   }
-  /**
-   * Coordinate independent browser and MCP processes with one private,
-   * atomically-created lock file. A lock is only reclaimed after its recorded
-   * process identity is gone; an incomplete creator gets a short grace period.
-   */
+  private async legacyLockIsGone(lock: string) {
+    const info = await fs.lstat(lock).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return undefined;
+      throw error;
+    });
+    if (!info) return true;
+    const directory = info.isDirectory();
+    if (!directory && !info.isFile())
+      throw new Error("Unexpected legacy workspace lock type.");
+    const recordPath = directory ? path.join(lock, "owner.json") : lock;
+    const source = await fs
+      .readFile(recordPath, "utf8")
+      .catch((error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return "";
+        throw error;
+      });
+    let record: { pid?: number; host?: string; startedAt?: string } = {};
+    try {
+      const value = JSON.parse(source);
+      if (value && typeof value === "object") record = value;
+    } catch {
+      // A legacy creator may have died before publishing its owner record.
+    }
+    if (record.host === os.hostname() && typeof record.pid === "number") {
+      try {
+        process.kill(record.pid, 0);
+        const startedAt = await this.processStartedAt(record.pid);
+        if (!record.startedAt || !startedAt || startedAt === record.startedAt)
+          return false;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ESRCH") return false;
+      }
+    } else if (Date.now() - info.mtimeMs < 1_000) return false;
+    if (directory) {
+      await fs.unlink(recordPath).catch((error: NodeJS.ErrnoException) => {
+        if (error.code !== "ENOENT") throw error;
+      });
+      await fs.rmdir(lock).catch((error: NodeJS.ErrnoException) => {
+        if (error.code !== "ENOENT") throw error;
+      });
+    } else
+      await fs.unlink(lock).catch((error: NodeJS.ErrnoException) => {
+        if (error.code !== "ENOENT") throw error;
+      });
+    return true;
+  }
+  /** OS locks release on process exit; the stable inode is never unlinked. */
   private async withProcessLock<T>(identity: string, action: () => Promise<T>) {
     const locksPath = path.join(path.dirname(this.configPath), "locks");
-    const lock = path.join(
-      locksPath,
-      createHash("sha256").update(identity).digest("hex"),
-    );
+    const name = createHash("sha256").update(identity).digest("hex");
     await fs.mkdir(locksPath, { recursive: true, mode: 0o700 });
+    const guard = await openLock(
+      path.join(locksPath, `${name}.oslock`),
+      Lock.Exclusive,
+      {
+        timeout: 10_000,
+      },
+    );
     const deadline = Date.now() + 10_000;
-    const owner = {
-      pid: process.pid,
-      host: os.hostname(),
-      startedAt: await this.processStartedAt(process.pid),
-      token: randomUUID(),
-    };
-    while (true) {
-      try {
-        await fs.writeFile(lock, JSON.stringify(owner), {
-          encoding: "utf8",
-          mode: 0o600,
-          flag: "wx",
-        });
-        break;
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-        try {
-          const source = await fs.readFile(lock, "utf8");
-          const record = JSON.parse(source) as {
-            pid?: number;
-            host?: string;
-            startedAt?: string;
-            token?: string;
-          };
-          if (record.host === os.hostname() && typeof record.pid === "number") {
-            let alive = false;
-            try {
-              process.kill(record.pid, 0);
-              const startedAt = await this.processStartedAt(record.pid);
-              alive =
-                !record.startedAt ||
-                !startedAt ||
-                startedAt === record.startedAt;
-            } catch {
-              alive = false;
-            }
-            if (!alive) {
-              // Re-read immediately before unlinking. This prevents a stale
-              // observer from deleting a replacement lock created by another
-              // reclaimer.
-              if (
-                (await fs.readFile(lock, "utf8").catch(() => "")) === source
-              ) {
-                await fs.unlink(lock).catch(() => {});
-                continue;
-              }
-            }
-          }
-        } catch {
-          // writeFile(wx) can leave an empty file only if its creator died.
-          // Give a live creator time to publish its record before reclaiming it.
-          const age = Date.now() - (await fs.stat(lock)).mtimeMs;
-          if (age > 1_000) {
-            await fs.unlink(lock).catch(() => {});
-            continue;
-          }
-        }
+    try {
+      while (!(await this.legacyLockIsGone(path.join(locksPath, name)))) {
         if (Date.now() >= deadline)
           throw new Error("Workspace is busy in another draw-local process.");
         await new Promise((resolve) => setTimeout(resolve, 20));
       }
-    }
-    try {
       return await action();
     } finally {
-      if (
-        (await fs.readFile(lock, "utf8").catch(() => "")) ===
-        JSON.stringify(owner)
-      )
-        await fs.unlink(lock).catch(() => {});
+      await guard.drop();
     }
   }
   private async withWorkspaceLock<T>(
@@ -745,7 +731,10 @@ export class Workspace {
         try {
           const prior = JSON.parse(await fs.readFile(transferPath, "utf8"));
           let priorTargetExists = false;
+          const sameDestination =
+            prior?.projectId === projectId && prior?.path === relative;
           if (
+            sameDestination &&
             prior?.draftId === id &&
             typeof prior.projectId === "string" &&
             typeof prior.path === "string"
@@ -765,9 +754,8 @@ export class Workspace {
               throw new Error("Destination already exists.");
             retry = true;
           } else {
-            // The process died after recording its intent but before creating
-            // its destination. The draft lock makes it safe to abandon that
-            // incomplete attempt and save the retained draft elsewhere.
+            // Retain an old target as an independent copy when the edited
+            // draft is saved to a different destination.
             await fs.unlink(transferPath);
           }
         } catch (error) {
@@ -983,6 +971,7 @@ export class Workspace {
           .catch(() => undefined)
       : undefined;
     const groups = new Map<string, { repo: string; paths: string[] }>();
+    const repositoryPaths: string[] = [];
     const directoryRepos = new Map<string, string | undefined>();
     for (const relative of paths) {
       const directory = path.dirname(this.resolve(root, relative));
@@ -995,6 +984,7 @@ export class Workspace {
         directoryRepos.set(directory, nearest);
       }
       if (!nearest) continue;
+      repositoryPaths.push(relative);
       const group = groups.get(nearest) ?? { repo: nearest, paths: [] };
       group.paths.push(relative);
       groups.set(nearest, group);
@@ -1041,10 +1031,11 @@ export class Workspace {
       }),
     );
     return {
-      available: Boolean(repo) || groups.size > 0,
+      available: Boolean(repo),
       branch,
       defaultBranch,
       statuses,
+      repositoryPaths,
       repo,
     };
   }

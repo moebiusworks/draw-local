@@ -261,20 +261,15 @@ app.post(
       );
   }),
 );
-app.get(
+app.post(
   "/api/project/git",
   route(async (req, res) => {
-    const paths = req.query.path;
-    res.json(
-      await workspace.gitContext(
-        id(req),
-        Array.isArray(paths)
-          ? paths.map(String)
-          : typeof paths === "string"
-            ? [paths]
-            : [],
-      ),
-    );
+    if (
+      !Array.isArray(req.body.paths) ||
+      !req.body.paths.every((path: unknown) => typeof path === "string")
+    )
+      throw new Error("Git paths must be an array of drawing paths.");
+    res.json(await workspace.gitContext(id(req), req.body.paths));
   }),
 );
 app.get(

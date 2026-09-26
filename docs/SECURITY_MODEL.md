@@ -13,10 +13,12 @@ draw-local is intended as a local, single-user developer tool, not a public mult
 - Writable file extensions are allowlisted.
 - File replacement is atomic.
 - Browser and MCP processes serialize registry and drawing mutations through
-  private, atomically-created lock files. Locks record a local process identity
-  (including Linux process start time where available); a later process recovers
-  only a dead or incomplete owner, rechecking the record before removal. A live
-  owner continues to exclude concurrent writes.
+  private OS file locks. Their lock files remain in place so concurrent processes
+  always lock the same inode; the OS releases a lock if its owner exits. During
+  upgrade, a new process waits for a live legacy owner or removes a stale legacy
+  owner record while holding the new OS lock. Linux process start time helps
+  distinguish reused legacy PIDs. Stop older running versions before upgrading;
+  their legacy lock protocol cannot coordinate with the new OS lock.
 - Directory registration canonicalizes an existing readable directory. Directory browsing is read-only; state-changing API requests also validate a same-loopback Origin when one is supplied.
 - The browser folder picker omits hidden directories and does not expose operating-system sensitive roots by default. This includes Linux system roots, macOS system and user Library paths, and Windows system/program/recovery roots plus per-user AppData, including mounted Windows volumes. This limits accidental disclosure in the UI; registered projects still use their explicit canonical paths.
 - Project explorer expansion reads only the immediate children of an explicitly registered root or already validated relative directory. It rejects absolute and parent-traversal paths, omits hidden and symbolic-link entries, and never recursively scans unopened folders.

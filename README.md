@@ -91,10 +91,10 @@ See `docs/SECURITY_MODEL.md`.
 - `npm run check`
 - `npm run notices` — generate installed dependency notices
 
-Continuous integration runs automatically for pushes to `main` and release tags.
-This is an explicit product decision to keep pull-request CI manual while retaining
-release-tag verification. It does not run for ordinary branches; maintainers can
-use GitHub Actions' **Run workflow** control to run it manually on any ref.
+Continuous integration runs automatically for pushes to `main` and tags, as
+explicitly requested after the initial UI polish plan. Pull requests and ordinary
+branches run only when a maintainer uses GitHub Actions' **Run workflow** control.
+The macOS and Windows shortcut browser checks follow the same triggers.
 
 ## License and third-party notices
 

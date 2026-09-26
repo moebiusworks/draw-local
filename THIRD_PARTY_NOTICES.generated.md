@@ -9,6 +9,8 @@
 
 ### LICENSE
 
+- Source: draw-local LICENSE
+
 ```text
 Apache License
                            Version 2.0, January 2004
@@ -220,6 +222,8 @@ Apache License
 
 ### LICENSE
 
+- Source: npm:@antfu/install-pkg@2.1.0#LICENSE
+
 ```text
 MIT License
 
@@ -250,6 +254,8 @@ SOFTWARE.
 - Repository: https://github.com/babel/babel.git
 
 ### LICENSE
+
+- Source: npm:@babel/runtime@7.29.7#LICENSE
 
 ```text
 MIT License
@@ -283,6 +289,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:@braintree/sanitize-url@6.0.2#LICENSE
+
 ```text
 MIT License
 
@@ -314,6 +322,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:@braintree/sanitize-url@7.1.2#LICENSE
+
 ```text
 MIT License
 
@@ -344,6 +354,8 @@ SOFTWARE.
 - Repository: git://github.com/Chevrotain/chevrotain.git
 
 ### LICENSE.txt
+
+- Source: npm:@chevrotain/cst-dts-gen@11.0.3#LICENSE.txt
 
 ```text
 Apache License
@@ -556,6 +568,8 @@ Apache License
 
 ### LICENSE.txt
 
+- Source: npm:@chevrotain/gast@11.0.3#LICENSE.txt
+
 ```text
 Apache License
                            Version 2.0, January 2004
@@ -766,6 +780,8 @@ Apache License
 - Repository: git://github.com/Chevrotain/chevrotain.git
 
 ### LICENSE.txt
+
+- Source: npm:@chevrotain/regexp-to-ast@11.0.3#LICENSE.txt
 
 ```text
 Apache License
@@ -978,6 +994,8 @@ Apache License
 
 ### LICENSE.txt
 
+- Source: npm:@chevrotain/types@11.0.3#LICENSE.txt
+
 ```text
 Apache License
                            Version 2.0, January 2004
@@ -1188,6 +1206,8 @@ Apache License
 - Repository: git://github.com/Chevrotain/chevrotain.git
 
 ### LICENSE.txt
+
+- Source: npm:@chevrotain/types@11.1.2#LICENSE.txt
 
 ```text
 Apache License
@@ -1400,6 +1420,8 @@ Apache License
 
 ### LICENSE.txt
 
+- Source: npm:@chevrotain/utils@11.0.3#LICENSE.txt
+
 ```text
 Apache License
                            Version 2.0, January 2004
@@ -1609,12 +1631,14 @@ Apache License
 - License: MIT
 - Repository: git+https://github.com/evanw/esbuild.git
 
-### LICENSE (standard MIT text)
+### LICENSE.md
+
+- Source: https://raw.githubusercontent.com/evanw/esbuild/f6058f8364fe7ab91ca57a83e02577ed74c9cae4/LICENSE.md
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2020 Evan Wallace
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1640,12 +1664,14 @@ SOFTWARE.
 - License: MIT
 - Repository: https://github.com/excalidraw/excalidraw
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/excalidraw/excalidraw/c10499eebb6267f24c056a03c5daf436aada0446/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2020 Excalidraw
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1671,6 +1697,8 @@ SOFTWARE.
 - License: MIT
 
 ### LICENSE
+
+- Source: npm:@excalidraw/laser-pointer@1.3.1#LICENSE
 
 ```text
 MIT License
@@ -1703,6 +1731,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:@excalidraw/markdown-to-text@0.1.2#LICENSE
+
 ```text
 The MIT License (MIT)
 
@@ -1732,6 +1762,8 @@ SOFTWARE.
 - License: MIT
 
 ### LICENSE
+
+- Source: npm:@excalidraw/mermaid-to-excalidraw@2.2.2#LICENSE
 
 ```text
 MIT License
@@ -1764,6 +1796,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:@excalidraw/random-username@1.1.0#LICENSE
+
 ```text
 MIT License
 
@@ -1795,6 +1829,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:@floating-ui/core@1.8.0#LICENSE
+
 ```text
 MIT License
 
@@ -1824,6 +1860,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Repository: https://github.com/floating-ui/floating-ui.git
 
 ### LICENSE
+
+- Source: npm:@floating-ui/dom@1.8.0#LICENSE
 
 ```text
 MIT License
@@ -1855,6 +1893,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:@floating-ui/react-dom@2.1.9#LICENSE
+
 ```text
 MIT License
 
@@ -1885,6 +1925,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:@floating-ui/utils@0.2.12#LICENSE
+
 ```text
 MIT License
 
@@ -1914,6 +1956,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Repository: git+https://github.com/honojs/node-server.git
 
 ### LICENSE
+
+- Source: npm:@hono/node-server@2.1.1#LICENSE
 
 ```text
 MIT License
@@ -1946,6 +1990,8 @@ SOFTWARE.
 
 ### license.txt
 
+- Source: npm:@iconify/types@2.0.0#license.txt
+
 ```text
 MIT License
 
@@ -1977,10 +2023,177 @@ SOFTWARE.
 
 ### license.txt
 
+- Source: npm:@iconify/utils@3.1.7#license.txt
+
 ```text
 MIT License
 
 Copyright (c) 2021-PRESENT Vjacheslav Trushkin
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @lickle/lock-darwin-arm64@0.0.1
+
+- License: MIT
+- Repository: git+https://github.com/Pingid/lickle-lock.git
+
+### LICENSE
+
+- Source: https://registry.npmjs.org/@lickle/lock/-/lock-0.0.1.tgz#LICENSE
+
+```text
+MIT License
+
+Copyright (c) Dan Beaven
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @lickle/lock-darwin-x64@0.0.1
+
+- License: MIT
+- Repository: git+https://github.com/Pingid/lickle-lock.git
+
+### LICENSE
+
+- Source: https://registry.npmjs.org/@lickle/lock/-/lock-0.0.1.tgz#LICENSE
+
+```text
+MIT License
+
+Copyright (c) Dan Beaven
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @lickle/lock-linux-x64-gnu@0.0.1
+
+- License: MIT
+- Repository: git+https://github.com/Pingid/lickle-lock.git
+
+### LICENSE
+
+- Source: https://registry.npmjs.org/@lickle/lock/-/lock-0.0.1.tgz#LICENSE
+
+```text
+MIT License
+
+Copyright (c) Dan Beaven
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @lickle/lock-win32-x64-msvc@0.0.1
+
+- License: MIT
+- Repository: git+https://github.com/Pingid/lickle-lock.git
+
+### LICENSE
+
+- Source: https://registry.npmjs.org/@lickle/lock/-/lock-0.0.1.tgz#LICENSE
+
+```text
+MIT License
+
+Copyright (c) Dan Beaven
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## @lickle/lock@0.0.1
+
+- License: MIT
+- Repository: git+https://github.com/Pingid/lickle-lock.git
+
+### LICENSE
+
+- Source: https://registry.npmjs.org/@lickle/lock/-/lock-0.0.1.tgz#LICENSE
+
+```text
+MIT License
+
+Copyright (c) Dan Beaven
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2007,6 +2220,8 @@ SOFTWARE.
 - Repository: https://github.com/mermaid-js/mermaid.git
 
 ### LICENSE
+
+- Source: npm:@mermaid-js/parser@0.6.3#LICENSE
 
 ```text
 The MIT License (MIT)
@@ -2039,6 +2254,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:@mermaid-js/parser@1.2.1#LICENSE
+
 ```text
 The MIT License (MIT)
 
@@ -2070,6 +2287,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:@modelcontextprotocol/sdk@1.30.0#LICENSE
+
 ```text
 MIT License
 
@@ -2100,6 +2319,8 @@ SOFTWARE.
 - Repository: git+https://github.com/oxc-project/oxc.git
 
 ### LICENSE
+
+- Source: npm:@oxc-project/types@0.150.0#LICENSE
 
 ```text
 MIT License
@@ -2133,6 +2354,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:@parcel/watcher-linux-x64-glibc@2.6.0#LICENSE
+
 ```text
 MIT License
 
@@ -2164,6 +2387,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:@parcel/watcher@2.6.0#LICENSE
+
 ```text
 MIT License
 
@@ -2194,6 +2419,8 @@ SOFTWARE.
 - Repository: git+https://github.com/microsoft/playwright.git
 
 ### LICENSE
+
+- Source: https://registry.npmjs.org/@playwright/test/-/test-1.63.0.tgz#LICENSE
 
 ```text
 Apache License
@@ -2402,6 +2629,8 @@ Apache License
 
 ### NOTICE
 
+- Source: https://registry.npmjs.org/@playwright/test/-/test-1.63.0.tgz#NOTICE
+
 ```text
 Playwright
 Copyright (c) Microsoft Corporation
@@ -2415,12 +2644,14 @@ available under the Apache 2.0 license (https://github.com/puppeteer/puppeteer/b
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2446,12 +2677,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2477,12 +2710,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2508,12 +2743,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2539,12 +2776,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2570,12 +2809,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2601,12 +2842,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2632,12 +2875,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2663,12 +2908,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2694,12 +2941,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2725,12 +2974,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2756,12 +3007,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2787,12 +3040,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2818,12 +3073,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2849,12 +3106,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2880,12 +3139,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2911,12 +3172,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2942,12 +3205,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -2973,12 +3238,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3004,12 +3271,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3035,12 +3304,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3066,12 +3337,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3097,12 +3370,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3128,12 +3403,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3159,12 +3436,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3190,12 +3469,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3221,12 +3502,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3252,12 +3535,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3283,12 +3568,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3314,12 +3601,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3345,12 +3634,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3376,12 +3667,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3407,12 +3700,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3438,12 +3733,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3469,12 +3766,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/radix-ui/primitives.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/radix-ui/primitives/f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2022 WorkOS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3500,12 +3799,14 @@ SOFTWARE.
 - License: MIT
 - Repository: git+https://github.com/rolldown/rolldown.git
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/rolldown/rolldown/b3b93d950575f7fea39880e4892355a113ebc640/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2024-present VoidZero Inc. & Contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3524,6 +3825,10 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+end of terms and conditions
+
+The licenses of externally maintained libraries from which parts of the Software is derived are listed [here](https://github.com/rolldown/rolldown/blob/main/THIRD-PARTY-LICENSE).
 ```
 
 ## @rolldown/pluginutils@1.0.1
@@ -3532,6 +3837,8 @@ SOFTWARE.
 - Repository: git+https://github.com/rolldown/plugins.git
 
 ### LICENSE
+
+- Source: npm:@rolldown/pluginutils@1.0.1#LICENSE
 
 ```text
 MIT License
@@ -3564,6 +3871,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:@types/body-parser@1.19.6#LICENSE
+
 ```text
 MIT License
 
@@ -3594,6 +3903,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/connect@3.4.38#LICENSE
 
 ```text
 MIT License
@@ -3626,6 +3937,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/d3-array@3.2.2#LICENSE
+
 ```text
 MIT License
 
@@ -3656,6 +3969,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/d3-axis@3.0.6#LICENSE
 
 ```text
 MIT License
@@ -3688,6 +4003,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/d3-brush@3.0.6#LICENSE
+
 ```text
 MIT License
 
@@ -3718,6 +4035,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/d3-chord@3.0.6#LICENSE
 
 ```text
 MIT License
@@ -3750,6 +4069,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/d3-color@3.1.3#LICENSE
+
 ```text
 MIT License
 
@@ -3780,6 +4101,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/d3-contour@3.0.6#LICENSE
 
 ```text
 MIT License
@@ -3812,6 +4135,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/d3-delaunay@6.0.4#LICENSE
+
 ```text
 MIT License
 
@@ -3842,6 +4167,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/d3-dispatch@3.0.7#LICENSE
 
 ```text
 MIT License
@@ -3874,6 +4201,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/d3-drag@3.0.7#LICENSE
+
 ```text
 MIT License
 
@@ -3904,6 +4233,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/d3-dsv@3.0.7#LICENSE
 
 ```text
 MIT License
@@ -3936,6 +4267,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/d3-ease@3.0.2#LICENSE
+
 ```text
 MIT License
 
@@ -3966,6 +4299,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/d3-fetch@3.0.7#LICENSE
 
 ```text
 MIT License
@@ -3998,6 +4333,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/d3-force@3.0.10#LICENSE
+
 ```text
 MIT License
 
@@ -4028,6 +4365,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/d3-format@3.0.4#LICENSE
 
 ```text
 MIT License
@@ -4060,6 +4399,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/d3-geo@3.1.1#LICENSE
+
 ```text
 MIT License
 
@@ -4090,6 +4431,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/d3-hierarchy@3.1.7#LICENSE
 
 ```text
 MIT License
@@ -4122,6 +4465,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/d3-interpolate@3.0.4#LICENSE
+
 ```text
 MIT License
 
@@ -4152,6 +4497,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/d3-path@3.1.1#LICENSE
 
 ```text
 MIT License
@@ -4184,6 +4531,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/d3-polygon@3.0.2#LICENSE
+
 ```text
 MIT License
 
@@ -4214,6 +4563,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/d3-quadtree@3.0.6#LICENSE
 
 ```text
 MIT License
@@ -4246,6 +4597,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/d3-random@3.0.4#LICENSE
+
 ```text
 MIT License
 
@@ -4276,6 +4629,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/d3-scale-chromatic@3.1.0#LICENSE
 
 ```text
 MIT License
@@ -4308,6 +4663,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/d3-scale@4.0.9#LICENSE
+
 ```text
 MIT License
 
@@ -4338,6 +4695,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/d3-selection@3.0.12#LICENSE
 
 ```text
 MIT License
@@ -4370,6 +4729,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/d3-shape@3.2.0#LICENSE
+
 ```text
 MIT License
 
@@ -4400,6 +4761,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/d3-time-format@4.0.3#LICENSE
 
 ```text
 MIT License
@@ -4432,6 +4795,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/d3-time@3.0.4#LICENSE
+
 ```text
 MIT License
 
@@ -4462,6 +4827,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/d3-timer@3.0.2#LICENSE
 
 ```text
 MIT License
@@ -4494,6 +4861,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/d3-transition@3.0.9#LICENSE
+
 ```text
 MIT License
 
@@ -4524,6 +4893,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/d3-zoom@3.0.8#LICENSE
 
 ```text
 MIT License
@@ -4556,6 +4927,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/d3@7.4.3#LICENSE
+
 ```text
 MIT License
 
@@ -4586,6 +4959,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/express-serve-static-core@5.1.3#LICENSE
 
 ```text
 MIT License
@@ -4618,6 +4993,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/express@5.0.6#LICENSE
+
 ```text
 MIT License
 
@@ -4648,6 +5025,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/geojson@7946.0.16#LICENSE
 
 ```text
 MIT License
@@ -4680,6 +5059,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/http-errors@2.0.5#LICENSE
+
 ```text
 MIT License
 
@@ -4710,6 +5091,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/node@24.13.6#LICENSE
 
 ```text
 MIT License
@@ -4742,6 +5125,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/qs@6.15.1#LICENSE
+
 ```text
 MIT License
 
@@ -4772,6 +5157,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/range-parser@1.2.7#LICENSE
 
 ```text
 MIT License
@@ -4804,6 +5191,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/react-dom@19.3.0#LICENSE
+
 ```text
 MIT License
 
@@ -4834,6 +5223,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/react@19.3.0#LICENSE
 
 ```text
 MIT License
@@ -4866,6 +5257,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/send@1.2.1#LICENSE
+
 ```text
 MIT License
 
@@ -4896,6 +5289,8 @@ MIT License
 - Repository: https://github.com/DefinitelyTyped/DefinitelyTyped.git
 
 ### LICENSE
+
+- Source: npm:@types/serve-static@2.2.0#LICENSE
 
 ```text
 MIT License
@@ -4928,6 +5323,8 @@ MIT License
 
 ### LICENSE
 
+- Source: npm:@types/trusted-types@2.0.7#LICENSE
+
 ```text
 MIT License
 
@@ -4958,6 +5355,8 @@ MIT License
 - Repository: https://github.com/microsoft/TypeScript.git
 
 ### LICENSE
+
+- Source: npm:@typescript/typescript-linux-x64@7.0.2#LICENSE
 
 ```text
 Apache License
@@ -5018,6 +5417,8 @@ END OF TERMS AND CONDITIONS
 ```
 
 ### NOTICE.txt
+
+- Source: npm:@typescript/typescript-linux-x64@7.0.2#NOTICE.txt
 
 ```text
 NOTICES AND INFORMATION
@@ -5464,6 +5865,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:@upsetjs/venn.js@2.0.0#LICENSE
+
 ```text
 MIT License
 
@@ -5495,6 +5898,8 @@ SOFTWARE.
 - Repository: jshttp/accepts
 
 ### LICENSE
+
+- Source: npm:accepts@2.0.0#LICENSE
 
 ```text
 (The MIT License)
@@ -5529,6 +5934,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:ajv-formats@3.0.1#LICENSE
+
 ```text
 MIT License
 
@@ -5559,6 +5966,8 @@ SOFTWARE.
 - Repository: ajv-validator/ajv
 
 ### LICENSE
+
+- Source: npm:ajv@8.20.0#LICENSE
 
 ```text
 The MIT License (MIT)
@@ -5591,6 +6000,8 @@ SOFTWARE.
 
 ### license
 
+- Source: npm:ansi-regex@5.0.1#license
+
 ```text
 MIT License
 
@@ -5610,6 +6021,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### license
 
+- Source: npm:ansi-styles@4.3.0#license
+
 ```text
 MIT License
 
@@ -5628,6 +6041,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: https://github.com/micromatch/anymatch
 
 ### LICENSE
+
+- Source: npm:anymatch@3.1.3#LICENSE
 
 ```text
 The ISC License
@@ -5653,6 +6068,8 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 - Repository: git+https://github.com/theKashey/aria-hidden.git
 
 ### LICENSE
+
+- Source: npm:aria-hidden@1.2.6#LICENSE
 
 ```text
 MIT License
@@ -5685,6 +6102,8 @@ SOFTWARE.
 
 ### license
 
+- Source: npm:binary-extensions@2.3.0#license
+
 ```text
 MIT License
 
@@ -5704,6 +6123,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: expressjs/body-parser
 
 ### LICENSE
+
+- Source: npm:body-parser@2.3.0#LICENSE
 
 ```text
 (The MIT License)
@@ -5738,6 +6159,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:braces@3.0.3#LICENSE
+
 ```text
 The MIT License (MIT)
 
@@ -5768,6 +6191,8 @@ THE SOFTWARE.
 - Repository: git+https://github.com/GoogleChromeLabs/browser-fs-access.git
 
 ### LICENSE
+
+- Source: npm:browser-fs-access@0.29.1#LICENSE
 
 ```text
 Apache License
@@ -5980,6 +6405,8 @@ Apache License
 
 ### LICENSE
 
+- Source: npm:bytes@3.1.2#LICENSE
+
 ```text
 (The MIT License)
 
@@ -6013,6 +6440,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:call-bind-apply-helpers@1.0.2#LICENSE
+
 ```text
 MIT License
 
@@ -6043,6 +6472,8 @@ SOFTWARE.
 - Repository: git+https://github.com/ljharb/call-bound.git
 
 ### LICENSE
+
+- Source: npm:call-bound@1.0.4#LICENSE
 
 ```text
 MIT License
@@ -6075,6 +6506,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:canvas-roundrect-polyfill@0.0.1#LICENSE
+
 ```text
 MIT License
 
@@ -6106,6 +6539,8 @@ SOFTWARE.
 
 ### license
 
+- Source: npm:chalk@4.1.2#license
+
 ```text
 MIT License
 
@@ -6124,6 +6559,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: https://github.com/langium/chevrotain-allstar
 
 ### LICENSE
+
+- Source: npm:chevrotain-allstar@0.3.1#LICENSE
 
 ```text
 Copyright 2022 TypeFox GmbH
@@ -6150,6 +6587,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 - Repository: git://github.com/Chevrotain/chevrotain.git
 
 ### LICENSE.txt
+
+- Source: npm:chevrotain@11.0.3#LICENSE.txt
 
 ```text
 Apache License
@@ -6362,6 +6801,8 @@ Apache License
 
 ### LICENSE
 
+- Source: npm:chokidar@3.6.0#LICENSE
+
 ```text
 The MIT License (MIT)
 
@@ -6392,6 +6833,8 @@ THE SOFTWARE.
 - Repository: git+https://github.com/paulmillr/chokidar.git
 
 ### LICENSE
+
+- Source: npm:chokidar@5.0.0#LICENSE
 
 ```text
 The MIT License (MIT)
@@ -6424,6 +6867,8 @@ THE SOFTWARE.
 
 ### LICENSE.txt
 
+- Source: npm:cliui@8.0.1#LICENSE.txt
+
 ```text
 Copyright (c) 2015, Contributors
 
@@ -6448,6 +6893,8 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ### license
 
+- Source: npm:clsx@1.1.1#license
+
 ```text
 MIT License
 
@@ -6466,6 +6913,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: Qix-/color-convert
 
 ### LICENSE
+
+- Source: npm:color-convert@2.0.1#LICENSE
 
 ```text
 Copyright (c) 2011-2016 Heather Arthur <fayearthur@gmail.com>
@@ -6497,6 +6946,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:color-name@1.1.4#LICENSE
+
 ```text
 The MIT License (MIT)
 Copyright (c) 2015 Dmitry Ivanov
@@ -6514,6 +6965,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: https://github.com/tj/commander.js.git
 
 ### LICENSE
+
+- Source: npm:commander@7.2.0#LICENSE
 
 ```text
 (The MIT License)
@@ -6547,6 +7000,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:commander@8.3.0#LICENSE
+
 ```text
 (The MIT License)
 
@@ -6579,6 +7034,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:concurrently@9.2.4#LICENSE
+
 ```text
 The MIT License (MIT)
 
@@ -6609,6 +7066,8 @@ SOFTWARE.
 - Repository: jshttp/content-disposition
 
 ### LICENSE
+
+- Source: npm:content-disposition@1.1.0#LICENSE
 
 ```text
 (The MIT License)
@@ -6642,6 +7101,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:content-type@1.0.5#LICENSE
+
 ```text
 (The MIT License)
 
@@ -6673,6 +7134,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Repository: jshttp/content-type
 
 ### LICENSE
+
+- Source: npm:content-type@2.1.0#LICENSE
 
 ```text
 (The MIT License)
@@ -6706,6 +7169,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:cookie-signature@1.2.2#LICENSE
+
 ```text
 (The MIT License)
 
@@ -6737,6 +7202,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Repository: jshttp/cookie
 
 ### LICENSE
+
+- Source: npm:cookie@0.7.2#LICENSE
 
 ```text
 (The MIT License)
@@ -6771,6 +7238,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:cors@2.8.6#LICENSE
+
 ```text
 (The MIT License)
 
@@ -6803,6 +7272,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:cose-base@1.0.3#LICENSE
+
 ```text
 MIT License
 
@@ -6833,6 +7304,8 @@ SOFTWARE.
 - Repository: git+https://github.com/iVis-at-Bilkent/cose-base.git
 
 ### LICENSE
+
+- Source: npm:cose-base@2.2.0#LICENSE
 
 ```text
 MIT License
@@ -6865,6 +7338,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:crc-32@0.3.0#LICENSE
+
 ```text
 Copyright (C) 2014  SheetJS
 
@@ -6887,6 +7362,8 @@ Copyright (C) 2014  SheetJS
 - Repository: https://github.com/kentcdodds/cross-env.git
 
 ### LICENSE
+
+- Source: npm:cross-env@7.0.3#LICENSE
 
 ```text
 The MIT License (MIT)
@@ -6917,6 +7394,8 @@ SOFTWARE.
 - Repository: git@github.com:moxystudio/node-cross-spawn.git
 
 ### LICENSE
+
+- Source: npm:cross-spawn@7.0.6#LICENSE
 
 ```text
 The MIT License (MIT)
@@ -6949,6 +7428,8 @@ THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:csstype@3.2.3#LICENSE
+
 ```text
 Copyright (c) 2017-2018 Fredrik Nicol
 
@@ -6977,6 +7458,8 @@ SOFTWARE.
 - Repository: https://github.com/cytoscape/cytoscape.js-cose-bilkent.git
 
 ### LICENSE
+
+- Source: npm:cytoscape-cose-bilkent@4.1.0#LICENSE
 
 ```text
 Copyright (c) 2016-2018, The Cytoscape Consortium.
@@ -7007,6 +7490,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:cytoscape-fcose@2.2.0#LICENSE
+
 ```text
 Copyright (c) 2018 - present, iVis-at-Bilkent.
 
@@ -7036,6 +7521,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:cytoscape@3.34.3#LICENSE
+
 ```text
 Copyright (c) 2016-2026, The Cytoscape Consortium.
 
@@ -7064,6 +7551,8 @@ SOFTWARE.
 - Repository: https://github.com/d3/d3-array.git
 
 ### LICENSE
+
+- Source: npm:d3-array@2.12.1#LICENSE
 
 ```text
 Copyright 2010-2020 Mike Bostock
@@ -7102,6 +7591,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### LICENSE
 
+- Source: npm:d3-array@3.2.4#LICENSE
+
 ```text
 Copyright 2010-2023 Mike Bostock
 
@@ -7124,6 +7615,8 @@ THIS SOFTWARE.
 - Repository: https://github.com/d3/d3-axis.git
 
 ### LICENSE
+
+- Source: npm:d3-axis@3.0.0#LICENSE
 
 ```text
 Copyright 2010-2021 Mike Bostock
@@ -7148,6 +7641,8 @@ THIS SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:d3-brush@3.0.0#LICENSE
+
 ```text
 Copyright 2010-2021 Mike Bostock
 
@@ -7170,6 +7665,8 @@ THIS SOFTWARE.
 - Repository: https://github.com/d3/d3-chord.git
 
 ### LICENSE
+
+- Source: npm:d3-chord@3.0.1#LICENSE
 
 ```text
 Copyright 2010-2021 Mike Bostock
@@ -7194,6 +7691,8 @@ THIS SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:d3-color@3.1.0#LICENSE
+
 ```text
 Copyright 2010-2022 Mike Bostock
 
@@ -7217,6 +7716,8 @@ THIS SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:d3-contour@4.0.2#LICENSE
+
 ```text
 Copyright 2012-2023 Mike Bostock
 
@@ -7239,6 +7740,8 @@ THIS SOFTWARE.
 - Repository: https://github.com/d3/d3-delaunay.git
 
 ### LICENSE
+
+- Source: npm:d3-delaunay@6.0.4#LICENSE
 
 ```text
 Copyright 2018-2021 Observable, Inc.
@@ -7264,6 +7767,8 @@ THIS SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:d3-dispatch@3.0.1#LICENSE
+
 ```text
 Copyright 2010-2021 Mike Bostock
 
@@ -7286,6 +7791,8 @@ THIS SOFTWARE.
 - Repository: https://github.com/d3/d3-drag.git
 
 ### LICENSE
+
+- Source: npm:d3-drag@3.0.0#LICENSE
 
 ```text
 Copyright 2010-2021 Mike Bostock
@@ -7310,6 +7817,8 @@ THIS SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:d3-dsv@3.0.1#LICENSE
+
 ```text
 Copyright 2013-2021 Mike Bostock
 
@@ -7332,6 +7841,8 @@ THIS SOFTWARE.
 - Repository: https://github.com/d3/d3-ease.git
 
 ### LICENSE
+
+- Source: npm:d3-ease@3.0.1#LICENSE
 
 ```text
 Copyright 2010-2021 Mike Bostock
@@ -7371,6 +7882,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### LICENSE
 
+- Source: npm:d3-fetch@3.0.1#LICENSE
+
 ```text
 Copyright 2016-2021 Mike Bostock
 
@@ -7393,6 +7906,8 @@ THIS SOFTWARE.
 - Repository: https://github.com/d3/d3-force.git
 
 ### LICENSE
+
+- Source: npm:d3-force@3.0.0#LICENSE
 
 ```text
 Copyright 2010-2021 Mike Bostock
@@ -7417,6 +7932,8 @@ THIS SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:d3-format@3.1.2#LICENSE
+
 ```text
 Copyright 2010-2026 Mike Bostock
 
@@ -7439,6 +7956,8 @@ THIS SOFTWARE.
 - Repository: https://github.com/d3/d3-geo.git
 
 ### LICENSE
+
+- Source: npm:d3-geo@3.1.1#LICENSE
 
 ```text
 Copyright 2010-2024 Mike Bostock
@@ -7484,6 +8003,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:d3-hierarchy@3.1.2#LICENSE
+
 ```text
 Copyright 2010-2021 Mike Bostock
 
@@ -7507,6 +8028,8 @@ THIS SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:d3-interpolate@3.0.1#LICENSE
+
 ```text
 Copyright 2010-2021 Mike Bostock
 
@@ -7529,6 +8052,8 @@ THIS SOFTWARE.
 - Repository: https://github.com/d3/d3-path.git
 
 ### LICENSE
+
+- Source: npm:d3-path@1.0.9#LICENSE
 
 ```text
 Copyright 2015-2016 Mike Bostock
@@ -7567,6 +8092,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### LICENSE
 
+- Source: npm:d3-path@3.1.0#LICENSE
+
 ```text
 Copyright 2015-2022 Mike Bostock
 
@@ -7589,6 +8116,8 @@ THIS SOFTWARE.
 - Repository: https://github.com/d3/d3-polygon.git
 
 ### LICENSE
+
+- Source: npm:d3-polygon@3.0.1#LICENSE
 
 ```text
 Copyright 2010-2021 Mike Bostock
@@ -7613,6 +8142,8 @@ THIS SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:d3-quadtree@3.0.1#LICENSE
+
 ```text
 Copyright 2010-2021 Mike Bostock
 
@@ -7636,6 +8167,8 @@ THIS SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:d3-random@3.0.1#LICENSE
+
 ```text
 Copyright 2010-2021 Mike Bostock
 
@@ -7658,6 +8191,8 @@ THIS SOFTWARE.
 - Repository: https://github.com/d3/d3-sankey.git
 
 ### LICENSE
+
+- Source: npm:d3-sankey@0.12.3#LICENSE
 
 ```text
 Copyright 2015, Mike Bostock
@@ -7695,6 +8230,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 - Repository: https://github.com/d3/d3-scale-chromatic.git
 
 ### LICENSE
+
+- Source: npm:d3-scale-chromatic@3.1.0#LICENSE
 
 ```text
 Copyright 2010-2024 Mike Bostock
@@ -7734,6 +8271,8 @@ specific language governing permissions and limitations under the License.
 
 ### LICENSE
 
+- Source: npm:d3-scale@4.0.2#LICENSE
+
 ```text
 Copyright 2010-2021 Mike Bostock
 
@@ -7757,6 +8296,8 @@ THIS SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:d3-selection@3.0.0#LICENSE
+
 ```text
 Copyright 2010-2021 Mike Bostock
 
@@ -7779,6 +8320,8 @@ THIS SOFTWARE.
 - Repository: https://github.com/d3/d3-shape.git
 
 ### LICENSE
+
+- Source: npm:d3-shape@1.3.7#LICENSE
 
 ```text
 Copyright 2010-2015 Mike Bostock
@@ -7817,6 +8360,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### LICENSE
 
+- Source: npm:d3-shape@3.2.0#LICENSE
+
 ```text
 Copyright 2010-2022 Mike Bostock
 
@@ -7839,6 +8384,8 @@ THIS SOFTWARE.
 - Repository: https://github.com/d3/d3-time-format.git
 
 ### LICENSE
+
+- Source: npm:d3-time-format@4.1.0#LICENSE
 
 ```text
 Copyright 2010-2021 Mike Bostock
@@ -7863,6 +8410,8 @@ THIS SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:d3-time@3.1.0#LICENSE
+
 ```text
 Copyright 2010-2022 Mike Bostock
 
@@ -7885,6 +8434,8 @@ THIS SOFTWARE.
 - Repository: https://github.com/d3/d3-timer.git
 
 ### LICENSE
+
+- Source: npm:d3-timer@3.0.1#LICENSE
 
 ```text
 Copyright 2010-2021 Mike Bostock
@@ -7909,6 +8460,8 @@ THIS SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:d3-transition@3.0.1#LICENSE
+
 ```text
 Copyright 2010-2021 Mike Bostock
 
@@ -7931,6 +8484,8 @@ THIS SOFTWARE.
 - Repository: https://github.com/d3/d3-zoom.git
 
 ### LICENSE
+
+- Source: npm:d3-zoom@3.0.0#LICENSE
 
 ```text
 Copyright 2010-2021 Mike Bostock
@@ -7955,6 +8510,8 @@ THIS SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:d3@7.9.0#LICENSE
+
 ```text
 Copyright 2010-2023 Mike Bostock
 
@@ -7977,6 +8534,8 @@ THIS SOFTWARE.
 - Repository: git+https://github.com/tbo47/dagre-es.git
 
 ### LICENSE.md
+
+- Source: npm:dagre-d3-es@7.0.14#LICENSE.md
 
 ```text
 Original dagre-d3 copyright: Copyright (c) 2013 Chris Pettitt
@@ -8011,6 +8570,8 @@ THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:dayjs@1.11.23#LICENSE
+
 ```text
 MIT License
 
@@ -8042,6 +8603,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:debug@4.4.3#LICENSE
+
 ```text
 (The MIT License)
 
@@ -8071,6 +8634,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:delaunator@5.1.0#LICENSE
+
 ```text
 ISC License
 
@@ -8095,6 +8660,8 @@ THIS SOFTWARE.
 - Repository: dougwilson/nodejs-depd
 
 ### LICENSE
+
+- Source: npm:depd@2.0.0#LICENSE
 
 ```text
 (The MIT License)
@@ -8127,6 +8694,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Repository: git://github.com/lovell/detect-libc.git
 
 ### LICENSE
+
+- Source: npm:detect-libc@2.1.2#LICENSE
 
 ```text
 Apache License
@@ -8339,6 +8908,8 @@ Apache License
 
 ### LICENSE
 
+- Source: npm:detect-node-es@1.1.0#LICENSE
+
 ```text
 MIT License
 
@@ -8369,6 +8940,8 @@ SOFTWARE.
 - Repository: git://github.com/cure53/DOMPurify.git
 
 ### LICENSE
+
+- Source: npm:dompurify@3.4.15#LICENSE
 
 ```text
 Apache License
@@ -8581,6 +9154,8 @@ Apache License
 
 ### LICENSE
 
+- Source: npm:dunder-proto@1.0.1#LICENSE
+
 ```text
 MIT License
 
@@ -8612,6 +9187,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:ee-first@1.1.1#LICENSE
+
 ```text
 The MIT License (MIT)
 
@@ -8641,30 +9218,31 @@ THE SOFTWARE.
 - License: MIT
 - Repository: https://github.com/mathiasbynens/emoji-regex.git
 
-### LICENSE (standard MIT text)
+### LICENSE-MIT.txt
+
+- Source: https://raw.githubusercontent.com/mathiasbynens/emoji-regex/28a10d9e23663582faed522853d2ddae38868ca9/LICENSE-MIT.txt
 
 ```text
-MIT License
+Copyright Mathias Bynens <https://mathiasbynens.be/>
 
-Copyright (c) <year> <copyright holders>
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## encodeurl@2.0.0
@@ -8673,6 +9251,8 @@ SOFTWARE.
 - Repository: pillarjs/encodeurl
 
 ### LICENSE
+
+- Source: npm:encodeurl@2.0.0#LICENSE
 
 ```text
 (The MIT License)
@@ -8706,6 +9286,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:es-define-property@1.0.1#LICENSE
+
 ```text
 MIT License
 
@@ -8736,6 +9318,8 @@ SOFTWARE.
 - Repository: git+https://github.com/ljharb/es-errors.git
 
 ### LICENSE
+
+- Source: npm:es-errors@1.3.0#LICENSE
 
 ```text
 MIT License
@@ -8768,6 +9352,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:es-object-atoms@1.1.2#LICENSE
+
 ```text
 MIT License
 
@@ -8799,6 +9385,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:es-toolkit@1.52.0#LICENSE
+
 ```text
 MIT License
 
@@ -8824,6 +9412,8 @@ SOFTWARE.
 ```
 
 ### NOTICE
+
+- Source: npm:es-toolkit@1.52.0#NOTICE
 
 ```text
 es-toolkit
@@ -8874,6 +9464,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:es6-promise-pool@2.5.0#LICENSE
+
 ```text
 Copyright (c) 2017 Tim De Pauw <https://tmdpw.eu/>
 
@@ -8902,6 +9494,8 @@ SOFTWARE.
 - Repository: git+https://github.com/evanw/esbuild.git
 
 ### LICENSE.md
+
+- Source: npm:esbuild@0.28.2#LICENSE.md
 
 ```text
 MIT License
@@ -8934,6 +9528,8 @@ SOFTWARE.
 
 ### license
 
+- Source: npm:escalade@3.2.0#license
+
 ```text
 MIT License
 
@@ -8952,6 +9548,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: component/escape-html
 
 ### LICENSE
+
+- Source: npm:escape-html@1.0.3#LICENSE
 
 ```text
 (The MIT License)
@@ -8987,6 +9585,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:etag@1.8.1#LICENSE
+
 ```text
 (The MIT License)
 
@@ -9019,6 +9619,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:eventsource-parser@3.1.1#LICENSE
+
 ```text
 MIT License
 
@@ -9049,6 +9651,8 @@ SOFTWARE.
 - Repository: git://git@github.com/EventSource/eventsource.git
 
 ### LICENSE
+
+- Source: npm:eventsource@3.0.7#LICENSE
 
 ```text
 The MIT License
@@ -9082,6 +9686,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### license
 
+- Source: npm:express-rate-limit@8.7.0#license
+
 ```text
 MIT License
 
@@ -9112,6 +9718,8 @@ SOFTWARE.
 - Repository: expressjs/express
 
 ### LICENSE
+
+- Source: npm:express@5.2.1#LICENSE
 
 ```text
 (The MIT License)
@@ -9147,6 +9755,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:fast-deep-equal@3.1.3#LICENSE
+
 ```text
 MIT License
 
@@ -9177,6 +9787,8 @@ SOFTWARE.
 - Repository: git+https://github.com/fastify/fast-uri.git
 
 ### LICENSE
+
+- Source: npm:fast-uri@3.1.8#LICENSE
 
 ```text
 Copyright (c) 2011-2021, Gary Court until https://github.com/garycourt/uri-js/commit/a1acf730b4bba3f1097c9f52e7d9d3aba8cdcaae
@@ -9216,30 +9828,20 @@ The complete list of contributors can be found at:
 - License: MIT
 - Repository: git://github.com/wilsonpage/fastdom.git
 
-### LICENSE (standard MIT text)
+### README.md
+
+- Source: https://raw.githubusercontent.com/wilsonpage/fastdom/01524d7b90785fcac5a75bb9f149e14b9e5246c3/README.md
 
 ```text
-MIT License
+(The MIT License)
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2016 Wilson Page <wilsonpage@me.com>
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the 'Software'), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## fdir@6.5.0
@@ -9248,6 +9850,8 @@ SOFTWARE.
 - Repository: git+https://github.com/thecodrr/fdir.git
 
 ### LICENSE
+
+- Source: npm:fdir@6.5.0#LICENSE
 
 ```text
 Copyright 2023 Abdullah Atta
@@ -9265,6 +9869,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: jonschlinkert/fill-range
 
 ### LICENSE
+
+- Source: npm:fill-range@7.1.1#LICENSE
 
 ```text
 The MIT License (MIT)
@@ -9296,6 +9902,8 @@ THE SOFTWARE.
 - Repository: pillarjs/finalhandler
 
 ### LICENSE
+
+- Source: npm:finalhandler@2.1.1#LICENSE
 
 ```text
 (The MIT License)
@@ -9329,6 +9937,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:forwarded@0.2.0#LICENSE
+
 ```text
 (The MIT License)
 
@@ -9360,6 +9970,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Repository: https://github.com/rocicorp/fractional-indexing.git
 
 ### LICENSE
+
+- Source: npm:fractional-indexing@3.2.0#LICENSE
 
 ```text
 Creative Commons Legal Code
@@ -9492,6 +10104,8 @@ express Statement of Purpose.
 
 ### LICENSE
 
+- Source: npm:fresh@2.0.0#LICENSE
+
 ```text
 (The MIT License)
 
@@ -9525,6 +10139,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:function-bind@1.1.2#LICENSE
+
 ```text
 Copyright (c) 2013 Raynos.
 
@@ -9549,8 +10165,37 @@ THE SOFTWARE.
 
 ## fuzzy@0.1.3
 
-- License: SEE PACKAGE
+- License: MIT
 - Repository: git://github.com/mattyork/fuzzy.git
+
+### LICENSE-MIT
+
+- Source: https://raw.githubusercontent.com/mattyork/fuzzy/39e3f256ce44411bc20ee79bc6bbf616ac88d163/LICENSE-MIT
+
+```text
+Copyright (c) 2012 Matt York
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+```
 
 ## get-caller-file@2.0.5
 
@@ -9558,6 +10203,8 @@ THE SOFTWARE.
 - Repository: git+https://github.com/stefanpenner/get-caller-file.git
 
 ### LICENSE.md
+
+- Source: npm:get-caller-file@2.0.5#LICENSE.md
 
 ```text
 ISC License (ISC)
@@ -9574,6 +10221,8 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 - Repository: git+https://github.com/ljharb/get-intrinsic.git
 
 ### LICENSE
+
+- Source: npm:get-intrinsic@1.3.0#LICENSE
 
 ```text
 MIT License
@@ -9606,6 +10255,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:get-nonce@1.0.1#LICENSE
+
 ```text
 MIT License
 
@@ -9636,6 +10287,8 @@ SOFTWARE.
 - Repository: git+https://github.com/ljharb/get-proto.git
 
 ### LICENSE
+
+- Source: npm:get-proto@1.0.1#LICENSE
 
 ```text
 MIT License
@@ -9668,6 +10321,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:glob-parent@5.1.2#LICENSE
+
 ```text
 The ISC License
 
@@ -9692,6 +10347,8 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 - Repository: nodeca/glur
 
 ### LICENSE
+
+- Source: npm:glur@1.1.2#LICENSE
 
 ```text
 The MIT License (MIT)
@@ -9724,6 +10381,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:gopd@1.2.0#LICENSE
+
 ```text
 MIT License
 
@@ -9754,6 +10413,8 @@ SOFTWARE.
 - Repository: git+https://github.com/pshihn/hachure-fill.git
 
 ### LICENSE
+
+- Source: npm:hachure-fill@0.5.2#LICENSE
 
 ```text
 MIT License
@@ -9786,6 +10447,8 @@ SOFTWARE.
 
 ### license
 
+- Source: npm:has-flag@4.0.0#license
+
 ```text
 MIT License
 
@@ -9804,6 +10467,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: git://github.com/inspect-js/has-symbols.git
 
 ### LICENSE
+
+- Source: npm:has-symbols@1.1.0#LICENSE
 
 ```text
 MIT License
@@ -9836,6 +10501,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:hasown@2.0.4#LICENSE
+
 ```text
 MIT License
 
@@ -9867,6 +10534,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:hono@4.13.8#LICENSE
+
 ```text
 MIT License
 
@@ -9897,6 +10566,8 @@ SOFTWARE.
 - Repository: jshttp/http-errors
 
 ### LICENSE
+
+- Source: npm:http-errors@2.0.1#LICENSE
 
 ```text
 The MIT License (MIT)
@@ -9930,6 +10601,8 @@ THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:iconv-lite@0.6.3#LICENSE
+
 ```text
 Copyright (c) 2011 Alexander Shtuchkin
 
@@ -9960,6 +10633,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:iconv-lite@0.7.3#LICENSE
+
 ```text
 Copyright (c) 2011 Alexander Shtuchkin
 
@@ -9989,6 +10664,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Repository: nodeca/image-blob-reduce
 
 ### LICENSE
+
+- Source: npm:image-blob-reduce@3.0.1#LICENSE
 
 ```text
 (The MIT License)
@@ -10021,6 +10698,8 @@ THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:immutable@4.3.9#LICENSE
+
 ```text
 MIT License
 
@@ -10052,6 +10731,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:immutable@5.1.9#LICENSE
+
 ```text
 MIT License
 
@@ -10082,6 +10763,8 @@ SOFTWARE.
 - Repository: wooorm/import-meta-resolve
 
 ### license
+
+- Source: npm:import-meta-resolve@4.2.0#license
 
 ```text
 (The MIT License)
@@ -10167,6 +10850,8 @@ IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:inherits@2.0.4#LICENSE
+
 ```text
 The ISC License
 
@@ -10192,6 +10877,8 @@ PERFORMANCE OF THIS SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:internmap@1.0.1#LICENSE
+
 ```text
 Copyright 2021 Mike Bostock
 
@@ -10215,6 +10902,8 @@ THIS SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:internmap@2.0.3#LICENSE
+
 ```text
 Copyright 2021 Mike Bostock
 
@@ -10237,6 +10926,8 @@ THIS SOFTWARE.
 - Repository: https://github.com/beaugunderson/ip-address.git
 
 ### LICENSE
+
+- Source: npm:ip-address@10.7.2#LICENSE
 
 ```text
 Copyright (C) 2011 by Beau Gunderson
@@ -10267,6 +10958,8 @@ THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:ipaddr.js@1.9.1#LICENSE
+
 ```text
 Copyright (C) 2011-2017 whitequark <whitequark@whitequark.org>
 
@@ -10296,6 +10989,8 @@ THE SOFTWARE.
 
 ### license
 
+- Source: npm:is-binary-path@2.1.0#license
+
 ```text
 MIT License
 
@@ -10314,6 +11009,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: jonschlinkert/is-extglob
 
 ### LICENSE
+
+- Source: npm:is-extglob@2.1.1#LICENSE
 
 ```text
 The MIT License (MIT)
@@ -10346,6 +11043,8 @@ THE SOFTWARE.
 
 ### license
 
+- Source: npm:is-fullwidth-code-point@3.0.0#license
+
 ```text
 MIT License
 
@@ -10364,6 +11063,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: micromatch/is-glob
 
 ### LICENSE
+
+- Source: npm:is-glob@4.0.3#LICENSE
 
 ```text
 The MIT License (MIT)
@@ -10396,6 +11097,8 @@ THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:is-number@7.0.0#LICENSE
+
 ```text
 The MIT License (MIT)
 
@@ -10427,6 +11130,8 @@ THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:is-promise@4.0.0#LICENSE
+
 ```text
 Copyright (c) 2014 Forbes Lindesay
 
@@ -10456,6 +11161,8 @@ THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:isexe@2.0.0#LICENSE
+
 ```text
 The ISC License
 
@@ -10480,6 +11187,8 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 - Repository: panva/jose
 
 ### LICENSE.md
+
+- Source: npm:jose@6.2.12#LICENSE.md
 
 ```text
 The MIT License (MIT)
@@ -10512,6 +11221,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:jotai-scope@0.7.2#LICENSE
+
 ```text
 The MIT License (MIT)
 
@@ -10542,6 +11253,8 @@ THE SOFTWARE.
 - Repository: git+https://github.com/pmndrs/jotai.git
 
 ### LICENSE
+
+- Source: npm:jotai@2.11.0#LICENSE
 
 ```text
 MIT License
@@ -10574,6 +11287,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:json-schema-traverse@1.0.0#LICENSE
+
 ```text
 MIT License
 
@@ -10604,6 +11319,8 @@ SOFTWARE.
 - Repository: https://github.com/RemyRylan/json-schema-typed.git
 
 ### LICENSE.md
+
+- Source: npm:json-schema-typed@8.0.2#LICENSE.md
 
 ```text
 BSD 2-Clause License
@@ -10672,6 +11389,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### LICENSE
 
+- Source: npm:katex@0.16.47#LICENSE
+
 ```text
 The MIT License (MIT)
 
@@ -10698,10 +11417,12 @@ SOFTWARE.
 
 ## khroma@2.1.0
 
-- License: SEE PACKAGE
+- License: MIT
 - Repository: github:fabiospampinato/khroma
 
 ### license
+
+- Source: npm:khroma@2.1.0#license
 
 ```text
 The MIT License (MIT)
@@ -10734,6 +11455,8 @@ DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:langium@3.3.1#LICENSE
+
 ```text
 Copyright 2021 TypeFox GmbH
 
@@ -10759,6 +11482,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 - Repository: git+https://github.com/iVis-at-Bilkent/layout-base.git
 
 ### LICENSE
+
+- Source: npm:layout-base@1.0.2#LICENSE
 
 ```text
 MIT License
@@ -10791,6 +11516,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:layout-base@2.0.1#LICENSE
+
 ```text
 MIT License
 
@@ -10821,6 +11548,8 @@ SOFTWARE.
 - Repository: https://github.com/parcel-bundler/lightningcss.git
 
 ### LICENSE
+
+- Source: npm:lightningcss-linux-x64-gnu@1.33.0#LICENSE
 
 ```text
 Mozilla Public License Version 2.0
@@ -11205,6 +11934,8 @@ defined by the Mozilla Public License, v. 2.0.
 
 ### LICENSE
 
+- Source: npm:lightningcss@1.33.0#LICENSE
+
 ```text
 Mozilla Public License Version 2.0
 ==================================
@@ -11588,6 +12319,8 @@ defined by the Mozilla Public License, v. 2.0.
 
 ### LICENSE
 
+- Source: npm:lodash-es@4.17.21#LICENSE
+
 ```text
 Copyright OpenJS Foundation and other contributors <https://openjsf.org/>
 
@@ -11644,6 +12377,8 @@ terms above.
 - Repository: lodash/lodash
 
 ### LICENSE
+
+- Source: npm:lodash.debounce@4.0.8#LICENSE
 
 ```text
 Copyright jQuery Foundation and other contributors <https://jquery.org/>
@@ -11702,6 +12437,8 @@ terms above.
 
 ### LICENSE
 
+- Source: npm:lodash.throttle@4.1.1#LICENSE
+
 ```text
 Copyright jQuery Foundation and other contributors <https://jquery.org/>
 
@@ -11759,6 +12496,8 @@ terms above.
 
 ### LICENSE.md
 
+- Source: npm:marked@16.4.2#LICENSE.md
+
 ```text
 # License information
 
@@ -11813,6 +12552,8 @@ This software is provided by the copyright holders and contributors “as is” 
 
 ### LICENSE
 
+- Source: npm:math-intrinsics@1.1.0#LICENSE
+
 ```text
 MIT License
 
@@ -11843,6 +12584,8 @@ SOFTWARE.
 - Repository: jshttp/media-typer
 
 ### LICENSE
+
+- Source: npm:media-typer@1.1.1#LICENSE
 
 ```text
 (The MIT License)
@@ -11876,6 +12619,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### license
 
+- Source: npm:merge-descriptors@2.0.0#license
+
 ```text
 MIT License
 
@@ -11896,6 +12641,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: https://github.com/mermaid-js/mermaid
 
 ### LICENSE
+
+- Source: npm:mermaid@11.17.2#LICENSE
 
 ```text
 The MIT License (MIT)
@@ -11927,6 +12674,8 @@ SOFTWARE.
 - Repository: jshttp/mime-db
 
 ### LICENSE
+
+- Source: npm:mime-db@1.54.0#LICENSE
 
 ```text
 (The MIT License)
@@ -11961,6 +12710,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:mime-types@3.0.2#LICENSE
+
 ```text
 (The MIT License)
 
@@ -11994,6 +12745,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### license.md
 
+- Source: npm:ms@2.1.3#license.md
+
 ```text
 The MIT License (MIT)
 
@@ -12024,6 +12777,8 @@ SOFTWARE.
 - Repository: nodeca/multimath
 
 ### LICENSE
+
+- Source: npm:multimath@2.0.0#LICENSE
 
 ```text
 (The MIT License)
@@ -12056,6 +12811,8 @@ THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:nanoid@3.3.19#LICENSE
+
 ```text
 The MIT License (MIT)
 
@@ -12085,6 +12842,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Repository: ai/nanoid
 
 ### LICENSE
+
+- Source: npm:nanoid@3.3.3#LICENSE
 
 ```text
 The MIT License (MIT)
@@ -12116,6 +12875,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:nanoid@4.0.2#LICENSE
+
 ```text
 The MIT License (MIT)
 
@@ -12145,6 +12906,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Repository: jshttp/negotiator
 
 ### LICENSE
+
+- Source: npm:negotiator@1.1.0#LICENSE
 
 ```text
 (The MIT License)
@@ -12180,6 +12943,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE.md
 
+- Source: npm:node-addon-api@7.1.1#LICENSE.md
+
 ```text
 The MIT License (MIT)
 
@@ -12198,6 +12963,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: jonschlinkert/normalize-path
 
 ### LICENSE
+
+- Source: npm:normalize-path@3.0.0#LICENSE
 
 ```text
 The MIT License (MIT)
@@ -12230,6 +12997,8 @@ THE SOFTWARE.
 
 ### license
 
+- Source: npm:object-assign@4.1.1#license
+
 ```text
 The MIT License (MIT)
 
@@ -12261,6 +13030,8 @@ THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:object-inspect@1.13.4#LICENSE
+
 ```text
 MIT License
 
@@ -12291,6 +13062,8 @@ SOFTWARE.
 - Repository: jshttp/on-finished
 
 ### LICENSE
+
+- Source: npm:on-finished@2.4.1#LICENSE
 
 ```text
 (The MIT License)
@@ -12325,6 +13098,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:once@1.4.0#LICENSE
+
 ```text
 The ISC License
 
@@ -12349,6 +13124,8 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 - Repository: git+https://github.com/yeun/open-color.git
 
 ### LICENSE
+
+- Source: npm:open-color@1.9.1#LICENSE
 
 ```text
 MIT License
@@ -12381,6 +13158,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:package-manager-detector@1.8.0#LICENSE
+
 ```text
 MIT License
 
@@ -12412,6 +13191,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:pako@2.0.3#LICENSE
+
 ```text
 (The MIT License)
 
@@ -12442,6 +13223,8 @@ THE SOFTWARE.
 - Repository: pillarjs/parseurl
 
 ### LICENSE
+
+- Source: npm:parseurl@1.3.3#LICENSE
 
 ```text
 (The MIT License)
@@ -12476,6 +13259,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:path-data-parser@0.1.0#LICENSE
+
 ```text
 MIT License
 
@@ -12507,6 +13292,8 @@ SOFTWARE.
 
 ### license
 
+- Source: npm:path-key@3.1.1#license
+
 ```text
 MIT License
 
@@ -12525,6 +13312,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: https://github.com/pillarjs/path-to-regexp.git
 
 ### LICENSE
+
+- Source: npm:path-to-regexp@8.4.2#LICENSE
 
 ```text
 The MIT License (MIT)
@@ -12557,6 +13346,8 @@ THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:perfect-freehand@1.2.0#LICENSE
+
 ```text
 MIT License
 
@@ -12587,6 +13378,8 @@ SOFTWARE.
 - Repository: nodeca/pica
 
 ### LICENSE
+
+- Source: npm:pica@7.1.1#LICENSE
 
 ```text
 (The MIT License)
@@ -12619,6 +13412,8 @@ THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:picocolors@1.1.1#LICENSE
+
 ```text
 ISC License
 
@@ -12643,6 +13438,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 - Repository: micromatch/picomatch
 
 ### LICENSE
+
+- Source: npm:picomatch@2.3.2#LICENSE
 
 ```text
 The MIT License (MIT)
@@ -12675,6 +13472,8 @@ THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:picomatch@4.0.7#LICENSE
+
 ```text
 The MIT License (MIT)
 
@@ -12705,6 +13504,8 @@ THE SOFTWARE.
 - Repository: git+https://github.com/crouchcd/pkce-challenge.git
 
 ### LICENSE
+
+- Source: npm:pkce-challenge@5.0.1#LICENSE
 
 ```text
 MIT License
@@ -12737,6 +13538,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: https://registry.npmjs.org/playwright-core/-/playwright-core-1.63.0.tgz#LICENSE
+
 ```text
 Apache License
                            Version 2.0, January 2004
@@ -12943,6 +13746,8 @@ Apache License
 ```
 
 ### NOTICE
+
+- Source: https://registry.npmjs.org/playwright-core/-/playwright-core-1.63.0.tgz#NOTICE
 
 ```text
 Playwright
@@ -12959,6 +13764,8 @@ available under the Apache 2.0 license (https://github.com/puppeteer/puppeteer/b
 
 ### LICENSE
 
+- Source: https://registry.npmjs.org/playwright/-/playwright-1.63.0.tgz#LICENSE
+
 ```text
 Apache License
                            Version 2.0, January 2004
@@ -13166,6 +13973,8 @@ Apache License
 
 ### NOTICE
 
+- Source: https://registry.npmjs.org/playwright/-/playwright-1.63.0.tgz#NOTICE
+
 ```text
 Playwright
 Copyright (c) Microsoft Corporation
@@ -13180,6 +13989,8 @@ available under the Apache 2.0 license (https://github.com/puppeteer/puppeteer/b
 - Repository: git://github.com/hughsk/png-chunk-text.git
 
 ### LICENSE.md
+
+- Source: npm:png-chunk-text@1.0.0#LICENSE.md
 
 ```text
 The MIT License (MIT)
@@ -13211,6 +14022,8 @@ OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE.md
 
+- Source: npm:png-chunks-encode@1.0.0#LICENSE.md
+
 ```text
 The MIT License (MIT)
 Copyright (c) 2015 Hugh Kennedy
@@ -13241,6 +14054,8 @@ OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE.md
 
+- Source: npm:png-chunks-extract@1.0.0#LICENSE.md
+
 ```text
 The MIT License (MIT)
 Copyright (c) 2015 Hugh Kennedy
@@ -13270,6 +14085,8 @@ OR OTHER DEALINGS IN THE SOFTWARE.
 - Repository: git+https://github.com/pshihn/bezier-points.git
 
 ### LICENSE
+
+- Source: npm:points-on-curve@0.2.0#LICENSE
 
 ```text
 MIT License
@@ -13302,6 +14119,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:points-on-curve@1.0.1#LICENSE
+
 ```text
 MIT License
 
@@ -13332,6 +14151,8 @@ SOFTWARE.
 - Repository: git+https://github.com/pshihn/points-on-path.git
 
 ### LICENSE
+
+- Source: npm:points-on-path@0.2.1#LICENSE
 
 ```text
 MIT License
@@ -13364,6 +14185,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:postcss@8.5.28#LICENSE
+
 ```text
 The MIT License (MIT)
 
@@ -13394,6 +14217,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: https://registry.npmjs.org/prettier/-/prettier-3.9.9.tgz#LICENSE
+
 ```text
 Copyright © James Long and contributors
 
@@ -13410,6 +14235,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: jshttp/proxy-addr
 
 ### LICENSE
+
+- Source: npm:proxy-addr@2.0.8#LICENSE
 
 ```text
 (The MIT License)
@@ -13442,6 +14269,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Repository: git+https://github.com/GoogleChrome/pwacompat.git
 
 ### LICENSE
+
+- Source: npm:pwacompat@2.0.17#LICENSE
 
 ```text
 Apache License
@@ -13654,6 +14483,8 @@ Apache License
 
 ### LICENSE.md
 
+- Source: npm:qs@6.16.0#LICENSE.md
+
 ```text
 BSD 3-Clause License
 
@@ -13693,6 +14524,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### LICENSE
 
+- Source: npm:range-parser@1.3.0#LICENSE
+
 ```text
 (The MIT License)
 
@@ -13726,6 +14559,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:raw-body@3.0.2#LICENSE
+
 ```text
 The MIT License (MIT)
 
@@ -13758,6 +14593,8 @@ THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:react-dom@19.3.0#LICENSE
+
 ```text
 MIT License
 
@@ -13787,12 +14624,14 @@ SOFTWARE.
 - License: MIT
 - Repository: https://github.com/theKashey/react-remove-scroll-bar
 
-### LICENSE (standard MIT text)
+### LICENSE
+
+- Source: https://raw.githubusercontent.com/theKashey/react-remove-scroll-bar/8ca9ba5ea52de03308fe8ced94f7b159a44d28ff/LICENSE
 
 ```text
 MIT License
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2025 Anton Korzunov <thekashey@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -13819,6 +14658,8 @@ SOFTWARE.
 - Repository: https://github.com/theKashey/react-remove-scroll
 
 ### LICENSE
+
+- Source: npm:react-remove-scroll@2.7.2#LICENSE
 
 ```text
 MIT License
@@ -13851,6 +14692,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:react-style-singleton@2.2.3#LICENSE
+
 ```text
 MIT License
 
@@ -13881,6 +14724,8 @@ SOFTWARE.
 - Repository: https://github.com/react/react.git
 
 ### LICENSE
+
+- Source: npm:react@19.3.0#LICENSE
 
 ```text
 MIT License
@@ -13913,6 +14758,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:readdirp@3.6.0#LICENSE
+
 ```text
 MIT License
 
@@ -13944,6 +14791,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:readdirp@5.1.1#LICENSE
+
 ```text
 MIT License
 
@@ -13974,6 +14823,8 @@ SOFTWARE.
 - Repository: git://github.com/troygoode/node-require-directory.git
 
 ### LICENSE
+
+- Source: npm:require-directory@2.1.1#LICENSE
 
 ```text
 The MIT License (MIT)
@@ -14007,6 +14858,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### license
 
+- Source: npm:require-from-string@2.0.2#license
+
 ```text
 The MIT License (MIT)
 
@@ -14037,6 +14890,8 @@ THE SOFTWARE.
 - Repository: https://github.com/mourner/robust-predicates.git
 
 ### LICENSE
+
+- Source: npm:robust-predicates@3.0.3#LICENSE
 
 ```text
 This is free and unencumbered software released into the public domain.
@@ -14071,6 +14926,8 @@ For more information, please refer to <http://unlicense.org>
 - Repository: git+https://github.com/rolldown/rolldown.git
 
 ### LICENSE
+
+- Source: npm:rolldown@1.2.9#LICENSE
 
 ```text
 MIT License
@@ -14107,6 +14964,8 @@ The licenses of externally maintained libraries from which parts of the Software
 
 ### LICENSE
 
+- Source: npm:roughjs@4.6.4#LICENSE
+
 ```text
 MIT License
 
@@ -14138,6 +14997,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:roughjs@4.6.6#LICENSE
+
 ```text
 MIT License
 
@@ -14168,6 +15029,8 @@ SOFTWARE.
 - Repository: pillarjs/router
 
 ### LICENSE
+
+- Source: npm:router@2.2.0#LICENSE
 
 ```text
 (The MIT License)
@@ -14201,6 +15064,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Repository: http://github.com/mbostock/rw.git
 
 ### LICENSE
+
+- Source: npm:rw@1.3.3#LICENSE
 
 ```text
 Copyright (c) 2014-2016, Michael Bostock
@@ -14237,6 +15102,8 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 - Repository: https://github.com/reactivex/rxjs.git
 
 ### LICENSE.txt
+
+- Source: npm:rxjs@7.8.2#LICENSE.txt
 
 ```text
 Apache License
@@ -14449,6 +15316,8 @@ Apache License
 
 ### LICENSE
 
+- Source: npm:safer-buffer@2.1.2#LICENSE
+
 ```text
 MIT License
 
@@ -14479,6 +15348,8 @@ SOFTWARE.
 - Repository: https://github.com/sass/dart-sass
 
 ### LICENSE
+
+- Source: npm:sass@1.104.1#LICENSE
 
 ```text
 Dart Sass license:
@@ -16210,6 +17081,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:sass@1.51.0#LICENSE
+
 ```text
 Dart Sass license:
 
@@ -17752,6 +18625,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### LICENSE
 
+- Source: npm:scheduler@0.28.0#LICENSE
+
 ```text
 MIT License
 
@@ -17782,6 +18657,8 @@ SOFTWARE.
 - Repository: pillarjs/send
 
 ### LICENSE
+
+- Source: npm:send@1.2.1#LICENSE
 
 ```text
 (The MIT License)
@@ -17815,6 +18692,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Repository: expressjs/serve-static
 
 ### LICENSE
+
+- Source: npm:serve-static@2.2.1#LICENSE
 
 ```text
 (The MIT License)
@@ -17851,6 +18730,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:setprototypeof@1.2.0#LICENSE
+
 ```text
 Copyright (c) 2015, Wes Todd
 
@@ -17874,6 +18755,8 @@ CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ### license
 
+- Source: npm:shebang-command@2.0.0#license
+
 ```text
 MIT License
 
@@ -17893,6 +18776,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### license
 
+- Source: npm:shebang-regex@3.0.0#license
+
 ```text
 MIT License
 
@@ -17911,6 +18796,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: http://github.com/ljharb/shell-quote.git
 
 ### LICENSE
+
+- Source: npm:shell-quote@1.9.0#LICENSE
 
 ```text
 The MIT License
@@ -17946,6 +18833,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:side-channel-list@1.0.1#LICENSE
+
 ```text
 MIT License
 
@@ -17976,6 +18865,8 @@ SOFTWARE.
 - Repository: git+https://github.com/ljharb/side-channel-map.git
 
 ### LICENSE
+
+- Source: npm:side-channel-map@1.0.1#LICENSE
 
 ```text
 MIT License
@@ -18008,6 +18899,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:side-channel-weakmap@1.0.2#LICENSE
+
 ```text
 MIT License
 
@@ -18038,6 +18931,8 @@ SOFTWARE.
 - Repository: git+https://github.com/ljharb/side-channel.git
 
 ### LICENSE
+
+- Source: npm:side-channel@1.1.1#LICENSE
 
 ```text
 MIT License
@@ -18070,6 +18965,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:sliced@1.0.1#LICENSE
+
 ```text
 (The MIT License)
 
@@ -18101,6 +18998,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Repository: 7rulnik/source-map-js
 
 ### LICENSE
+
+- Source: npm:source-map-js@1.2.1#LICENSE
 
 ```text
 Copyright (c) 2009-2011, Mozilla Foundation and contributors
@@ -18139,6 +19038,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### LICENSE
 
+- Source: npm:statuses@2.0.2#LICENSE
+
 ```text
 The MIT License (MIT)
 
@@ -18169,30 +19070,20 @@ THE SOFTWARE.
 - License: MIT
 - Repository: git://github.com/wilsonpage/strictdom.git
 
-### LICENSE (standard MIT text)
+### README.md
+
+- Source: https://raw.githubusercontent.com/wilsonpage/strictdom/3b4a4138ccc94e3c09505c7873907e3a5cc2544e/README.md
 
 ```text
-MIT License
+(The MIT License)
 
-Copyright (c) <year> <copyright holders>
+Copyright (c) 2013 Wilson Page <wilsonpage@me.com>
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the 'Software'), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ## string-width@4.2.3
@@ -18201,6 +19092,8 @@ SOFTWARE.
 - Repository: sindresorhus/string-width
 
 ### license
+
+- Source: npm:string-width@4.2.3#license
 
 ```text
 MIT License
@@ -18221,6 +19114,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### license
 
+- Source: npm:strip-ansi@6.0.1#license
+
 ```text
 MIT License
 
@@ -18239,6 +19134,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: https://github.com/thysultan/stylis.js
 
 ### LICENSE
+
+- Source: npm:stylis@4.4.0#LICENSE
 
 ```text
 MIT License
@@ -18271,6 +19168,8 @@ SOFTWARE.
 
 ### license
 
+- Source: npm:supports-color@7.2.0#license
+
 ```text
 MIT License
 
@@ -18290,6 +19189,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### license
 
+- Source: npm:supports-color@8.1.1#license
+
 ```text
 MIT License
 
@@ -18308,6 +19209,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: git+https://github.com/tinylibs/tinyexec.git
 
 ### LICENSE
+
+- Source: npm:tinyexec@1.3.1#LICENSE
 
 ```text
 MIT License
@@ -18340,6 +19243,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:tinyglobby@0.2.17#LICENSE
+
 ```text
 MIT License
 
@@ -18370,6 +19275,8 @@ SOFTWARE.
 - Repository: micromatch/to-regex-range
 
 ### LICENSE
+
+- Source: npm:to-regex-range@5.0.1#LICENSE
 
 ```text
 The MIT License (MIT)
@@ -18402,6 +19309,8 @@ THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:toidentifier@1.0.1#LICENSE
+
 ```text
 MIT License
 
@@ -18432,6 +19341,8 @@ SOFTWARE.
 - Repository: git://github.com/pkrumins/node-tree-kill.git
 
 ### LICENSE
+
+- Source: npm:tree-kill@1.2.2#LICENSE
 
 ```text
 MIT License
@@ -18464,6 +19375,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:ts-dedent@2.3.0#LICENSE
+
 ```text
 MIT License
 
@@ -18495,6 +19408,8 @@ SOFTWARE.
 
 ### LICENSE.txt
 
+- Source: npm:tslib@2.8.1#LICENSE.txt
+
 ```text
 Copyright (c) Microsoft Corporation.
 
@@ -18516,6 +19431,8 @@ PERFORMANCE OF THIS SOFTWARE.
 - Repository: privatenumber/tsx
 
 ### LICENSE
+
+- Source: npm:tsx@4.23.15#LICENSE
 
 ```text
 MIT License
@@ -18548,6 +19465,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:tunnel-rat@0.1.2#LICENSE
+
 ```text
 MIT License
 
@@ -18578,6 +19497,8 @@ SOFTWARE.
 - Repository: jshttp/type-is
 
 ### LICENSE
+
+- Source: npm:type-is@2.1.0#LICENSE
 
 ```text
 (The MIT License)
@@ -18611,6 +19532,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Repository: https://github.com/microsoft/TypeScript.git
 
 ### LICENSE
+
+- Source: npm:typescript@7.0.2#LICENSE
 
 ```text
 Apache License
@@ -18671,6 +19594,8 @@ END OF TERMS AND CONDITIONS
 ```
 
 ### NOTICE.txt
+
+- Source: npm:typescript@7.0.2#NOTICE.txt
 
 ```text
 NOTICES AND INFORMATION
@@ -19117,6 +20042,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:undici-types@7.18.2#LICENSE
+
 ```text
 MIT License
 
@@ -19147,6 +20074,8 @@ SOFTWARE.
 - Repository: stream-utils/unpipe
 
 ### LICENSE
+
+- Source: npm:unpipe@1.0.0#LICENSE
 
 ```text
 (The MIT License)
@@ -19180,6 +20109,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:use-callback-ref@1.3.3#LICENSE
+
 ```text
 MIT License
 
@@ -19210,6 +20141,8 @@ SOFTWARE.
 - Repository: https://github.com/theKashey/use-sidecar
 
 ### LICENSE
+
+- Source: npm:use-sidecar@1.1.3#LICENSE
 
 ```text
 MIT License
@@ -19242,6 +20175,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:use-sync-external-store@1.7.0#LICENSE
+
 ```text
 MIT License
 
@@ -19273,6 +20208,8 @@ SOFTWARE.
 
 ### LICENSE.md
 
+- Source: npm:uuid@14.0.2#LICENSE.md
+
 ```text
 The MIT License (MIT)
 
@@ -19291,6 +20228,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: jshttp/vary
 
 ### LICENSE
+
+- Source: npm:vary@1.1.2#LICENSE
 
 ```text
 (The MIT License)
@@ -19323,6 +20262,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Repository: git+https://github.com/vitejs/vite.git
 
 ### LICENSE.md
+
+- Source: npm:vite@8.2.2#LICENSE.md
 
 ```text
 # Vite core license
@@ -21656,6 +22597,8 @@ Repository: https://github.com/sveltejs/zimmerframe
 
 ### License.txt
 
+- Source: npm:vscode-jsonrpc@8.2.0#License.txt
+
 ```text
 Copyright (c) Microsoft Corporation
 
@@ -21676,6 +22619,8 @@ THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: https://github.com/Microsoft/vscode-languageserver-node.git
 
 ### License.txt
+
+- Source: npm:vscode-languageserver-protocol@3.17.5#License.txt
 
 ```text
 Copyright (c) Microsoft Corporation
@@ -21698,6 +22643,8 @@ THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### License.txt
 
+- Source: npm:vscode-languageserver-textdocument@1.0.14#License.txt
+
 ```text
 Copyright (c) Microsoft Corporation
 
@@ -21718,6 +22665,8 @@ THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: https://github.com/Microsoft/vscode-languageserver-node.git
 
 ### License.txt
+
+- Source: npm:vscode-languageserver-types@3.17.5#License.txt
 
 ```text
 Copyright (c) Microsoft Corporation
@@ -21740,6 +22689,8 @@ THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### License.txt
 
+- Source: npm:vscode-languageserver@9.0.1#License.txt
+
 ```text
 Copyright (c) Microsoft Corporation
 
@@ -21761,6 +22712,8 @@ THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### LICENSE.md
 
+- Source: npm:vscode-uri@3.0.8#LICENSE.md
+
 ```text
 The MIT License (MIT)
 
@@ -21779,6 +22732,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: git://github.com/substack/webworkify.git
 
 ### LICENSE
+
+- Source: npm:webworkify@1.5.0#LICENSE
 
 ```text
 This software is released under the MIT license:
@@ -21808,6 +22763,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:which@2.0.2#LICENSE
+
 ```text
 The ISC License
 
@@ -21833,6 +22790,8 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ### license
 
+- Source: npm:wrap-ansi@7.0.0#license
+
 ```text
 MIT License
 
@@ -21851,6 +22810,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - Repository: https://github.com/npm/wrappy
 
 ### LICENSE
+
+- Source: npm:wrappy@1.0.2#LICENSE
 
 ```text
 The ISC License
@@ -21877,6 +22838,8 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:y18n@5.0.8#LICENSE
+
 ```text
 Copyright (c) 2015, Contributors
 
@@ -21899,6 +22862,8 @@ THIS SOFTWARE.
 - Repository: https://github.com/yargs/yargs-parser.git
 
 ### LICENSE.txt
+
+- Source: npm:yargs-parser@21.1.1#LICENSE.txt
 
 ```text
 Copyright (c) 2016, Contributors
@@ -21923,6 +22888,8 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 - Repository: https://github.com/yargs/yargs.git
 
 ### LICENSE
+
+- Source: npm:yargs@17.7.2#LICENSE
 
 ```text
 MIT License
@@ -21955,6 +22922,8 @@ THE SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:zod-to-json-schema@3.25.2#LICENSE
+
 ```text
 ISC License
 
@@ -21979,6 +22948,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 - Repository: git+https://github.com/colinhacks/zod.git
 
 ### LICENSE
+
+- Source: npm:zod@4.6.5#LICENSE
 
 ```text
 MIT License
@@ -22011,6 +22982,8 @@ SOFTWARE.
 
 ### LICENSE
 
+- Source: npm:zustand@4.5.7#LICENSE
+
 ```text
 MIT License
 
@@ -22034,4 +23007,3 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
-

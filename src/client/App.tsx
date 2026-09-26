@@ -28,6 +28,7 @@ type GitContext = {
   available: boolean;
   branch?: string;
   defaultBranch?: string;
+  repositoryPaths: string[];
   statuses: Record<
     string,
     { label: string; index?: string; worktree?: string }
@@ -135,7 +136,9 @@ function IconButton({
       ? "draw-local on GitHub"
       : icon === "licenses"
         ? "Licenses"
-        : "Command");
+        : icon === "save-as"
+          ? "Save As"
+          : "Command");
   const tooltip = definition
     ? commandTooltip(
         definition,
@@ -320,6 +323,9 @@ export function App() {
     cancelledDraftRename = useRef<string | undefined>(undefined),
     loadSequence = useRef(0),
     refreshSequence = useRef(0),
+    gitRefreshSequence = useRef(new Map<string, number>()),
+    projectEntriesRef = useRef(projectEntries),
+    expandedEntriesRef = useRef(expandedEntries),
     projectIdRef = useRef<string | undefined>(undefined);
   const transitionRef = useRef(false);
   const libraryAdapter = useMemo(
@@ -343,45 +349,75 @@ export function App() {
     if (!window.name)
       window.name = `drawlocal${crypto.randomUUID().replaceAll("-", "")}`;
   }, []);
-  const refreshGit = useCallback(async (id: string, paths: string[] = []) => {
-    const query = new URLSearchParams({ projectId: id });
-    for (const path of paths) query.append("path", path);
-    const context = await request<GitContext>(`/api/project/git?${query}`);
-    setGitByProject((current) => ({ ...current, [id]: context }));
-  }, []);
-  const refresh = useCallback(async (id?: string) => {
-    const sequence = ++refreshSequence.current;
-    const [nextProjects, nextDrafts] = await Promise.all([
-      request<Project[]>("/api/projects"),
-      request<Draft[]>("/api/drafts"),
-    ]);
-    if (sequence !== refreshSequence.current) return;
-    setProjects(nextProjects);
-    setDrafts(nextDrafts);
-    const selected = id ?? projectIdRef.current;
-    if (selected) {
-      const context = await request<GitContext>(
-        `/api/project/git?projectId=${encodeURIComponent(selected)}`,
-      );
-      if (
-        sequence !== refreshSequence.current ||
-        selected !== projectIdRef.current
-      )
-        return;
-      setFiles([]);
-      // Entries are a cache for expansion, not a filesystem snapshot. Invalidate
-      // this project's expanded nodes so a focus/save/manual refresh observes
-      // added and removed files without recursively listing the whole tree.
-      setProjectEntries((entries) =>
-        Object.fromEntries(
-          Object.entries(entries).filter(
-            ([identity]) => !identity.startsWith(`${selected}:`),
+  const refreshGit = useCallback(
+    async (id: string, entries = projectEntriesRef.current) => {
+      const sequence = (gitRefreshSequence.current.get(id) ?? 0) + 1;
+      gitRefreshSequence.current.set(id, sequence);
+      const paths = Object.entries(entries)
+        .filter(([identity]) => identity.startsWith(`${id}:`))
+        .flatMap(([, items]) =>
+          items.filter((item) => item.kind === "file").map((item) => item.path),
+        );
+      const context = await request<GitContext>("/api/project/git", {
+        method: "POST",
+        body: JSON.stringify({ projectId: id, paths: [...new Set(paths)] }),
+      });
+      if (gitRefreshSequence.current.get(id) === sequence)
+        setGitByProject((current) => ({ ...current, [id]: context }));
+    },
+    [],
+  );
+  const refresh = useCallback(
+    async (id?: string) => {
+      const sequence = ++refreshSequence.current;
+      const [nextProjects, nextDrafts] = await Promise.all([
+        request<Project[]>("/api/projects"),
+        request<Draft[]>("/api/drafts"),
+      ]);
+      if (sequence !== refreshSequence.current) return;
+      setProjects(nextProjects);
+      setDrafts(nextDrafts);
+      const selected = id ?? projectIdRef.current;
+      if (selected) {
+        const identities = [...expandedEntriesRef.current].filter((identity) =>
+          identity.startsWith(`${selected}:`),
+        );
+        const refreshed = Object.fromEntries(
+          await Promise.all(
+            identities.map(async (identity) => {
+              const relative = identity.slice(selected.length + 1);
+              const items = await request<ProjectEntry[]>(
+                `/api/project/entries?projectId=${encodeURIComponent(selected)}${relative ? `&path=${encodeURIComponent(relative)}` : ""}`,
+              );
+              return [identity, items] as const;
+            }),
           ),
-        ),
-      );
-      setGitByProject((current) => ({ ...current, [selected]: context }));
-    }
-  }, []);
+        );
+        if (
+          sequence !== refreshSequence.current ||
+          selected !== projectIdRef.current
+        )
+          return;
+        await refreshGit(selected, refreshed);
+        if (
+          sequence !== refreshSequence.current ||
+          selected !== projectIdRef.current
+        )
+          return;
+        setFiles([]);
+        projectEntriesRef.current = {
+          ...Object.fromEntries(
+            Object.entries(projectEntriesRef.current).filter(
+              ([identity]) => !identity.startsWith(`${selected}:`),
+            ),
+          ),
+          ...refreshed,
+        };
+        setProjectEntries(projectEntriesRef.current);
+      }
+    },
+    [refreshGit],
+  );
   const selectProject = useCallback(
     (id: string) => {
       projectIdRef.current = id;
@@ -394,38 +430,30 @@ export function App() {
     const items = await request<ProjectEntry[]>(
       `/api/project/entries?projectId=${encodeURIComponent(id)}${relative ? `&path=${encodeURIComponent(relative)}` : ""}`,
     );
-    setProjectEntries((entries) => ({
-      ...entries,
+    projectEntriesRef.current = {
+      ...projectEntriesRef.current,
       [`${id}:${relative}`]: items,
-    }));
+    };
+    setProjectEntries(projectEntriesRef.current);
     return items;
   }, []);
   const toggleProjectEntry = async (id: string, relative = "") => {
     const identity = `${id}:${relative}`;
-    setExpandedEntries((current) => {
-      const next = new Set(current);
-      if (next.has(identity)) next.delete(identity);
-      else next.add(identity);
-      return next;
-    });
+    const next = new Set(expandedEntriesRef.current);
+    if (next.has(identity)) next.delete(identity);
+    else next.add(identity);
+    expandedEntriesRef.current = next;
+    setExpandedEntries(next);
     if (!projectEntries[identity]) {
       try {
-        const items = await loadProjectEntries(id, relative);
-        await refreshGit(
-          id,
-          items.filter((item) => item.kind === "file").map((item) => item.path),
-        );
+        await loadProjectEntries(id, relative);
+        await refreshGit(id);
       } catch (error) {
         setStatus(`Folder failed: ${(error as Error).message}`);
       }
     }
     if (projectEntries[identity])
-      void refreshGit(
-        id,
-        projectEntries[identity]
-          .filter((item) => item.kind === "file")
-          .map((item) => item.path),
-      ).catch((error: Error) =>
+      void refreshGit(id).catch((error: Error) =>
         setStatus(`Git refresh failed: ${error.message}`),
       );
   };
@@ -440,18 +468,15 @@ export function App() {
       if (projectEntries[identity]) continue;
       const [id, relative = ""] = identity.split(":", 2);
       if (projects.some((project) => project.id === id && project.available)) {
-        void loadProjectEntries(id!, relative).catch((error: Error) =>
-          setStatus(`Folder failed: ${error.message}`),
-        );
-        if (!gitByProject[id!])
-          void refreshGit(id!).catch((error: Error) =>
-            setStatus(`Git refresh failed: ${error.message}`),
+        void loadProjectEntries(id!, relative)
+          .then(() => refreshGit(id!))
+          .catch((error: Error) =>
+            setStatus(`Folder or Git refresh failed: ${error.message}`),
           );
       }
     }
   }, [
     expandedEntries,
-    gitByProject,
     loadProjectEntries,
     projectEntries,
     projects,
@@ -943,9 +968,13 @@ export function App() {
       );
   }, [licenses, notices.length]);
   const activeProject = projects.find((project) => project.id === projectId);
-  const git = projectId
-    ? (gitByProject[projectId] ?? { available: false, statuses: {} })
-    : { available: false, statuses: {} };
+  const git: GitContext = projectId
+    ? (gitByProject[projectId] ?? {
+        available: false,
+        statuses: {},
+        repositoryPaths: [],
+      })
+    : { available: false, statuses: {}, repositoryPaths: [] };
   const libraryReturnUrl = open
     ? encodeURIComponent(
         `${window.location.origin}${window.location.pathname}?${open.kind === "draft" ? `draft=${open.id}` : `project=${open.projectId}&file=${encodeURIComponent(open.path)}`}`,
@@ -1008,6 +1037,7 @@ export function App() {
     const projectGit = gitByProject[id] ?? {
       available: false,
       statuses: {},
+      repositoryPaths: [],
     };
     const identity = `${id}:${relative}`;
     if (!expandedEntries.has(identity)) return null;
@@ -1040,9 +1070,9 @@ export function App() {
           </div>
         );
       }
-      const label =
-        projectGit.statuses[entry.path]?.label ??
-        (projectGit.available ? "Committed" : "");
+      const label = projectGit.repositoryPaths?.includes(entry.path)
+        ? (projectGit.statuses[entry.path]?.label ?? "Committed")
+        : "";
       const gitState = projectGit.statuses[entry.path];
       const conflicted = gitState?.label === "Conflicted";
       const base = conflicted

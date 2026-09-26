@@ -21,7 +21,8 @@ jobs:
         with:
           node-version: 22
       - run: npm install
-      - run: npm run test:shortcuts
+      - run: npx playwright install chromium
+      - run: npm run test:browser:shortcuts
   check:
     runs-on: ubuntu-latest
     steps:

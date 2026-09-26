@@ -9,7 +9,12 @@ const rawEntries = Object.entries(lockfile.packages ?? {})
     const index = location.lastIndexOf("node_modules/");
     return index < 0
       ? undefined
-      : { location, name: location.slice(index + 13), version: pkg.version };
+      : {
+          location,
+          name: location.slice(index + 13),
+          version: pkg.version,
+          archive: pkg.resolved,
+        };
   });
 const identity = (pkg) => `${pkg.name}@${pkg.version}`;
 const entries = [
@@ -18,40 +23,92 @@ const entries = [
   ).values(),
 ];
 const noticeName = /^(license|notice|copying|authors|attribution)(\.|$)/i;
-const mit = `MIT License
-
-Copyright (c) <year> <copyright holders>
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.`;
+const upstream = (pkg) => {
+  if (pkg.name.startsWith("@radix-ui/"))
+    return ["radix-ui", "primitives", "main", "LICENSE"];
+  if (pkg.name === "@excalidraw/excalidraw")
+    return ["excalidraw", "excalidraw", "master", "LICENSE"];
+  if (pkg.name.startsWith("@esbuild/"))
+    return ["evanw", "esbuild", "main", "LICENSE.md"];
+  if (pkg.name.startsWith("@rolldown/"))
+    return ["rolldown", "rolldown", "main", "LICENSE"];
+  if (pkg.name === "emoji-regex")
+    return ["mathiasbynens", "emoji-regex", "main", "LICENSE-MIT.txt"];
+  if (pkg.name === "react-remove-scroll-bar")
+    return ["theKashey", "react-remove-scroll-bar", "master", "LICENSE"];
+  if (pkg.name === "fuzzy")
+    return ["mattyork", "fuzzy", "master", "LICENSE-MIT"];
+  if (["fastdom", "strictdom"].includes(pkg.name))
+    return ["wilsonpage", pkg.name, "master", "README.md"];
+};
+const upstreamCache = new Map();
+async function upstreamNotice(pkg) {
+  const spec = upstream(pkg);
+  if (!spec)
+    throw new Error(`No authentic notice source for ${identity(pkg)}.`);
+  const key = spec.join("/");
+  if (!upstreamCache.has(key)) {
+    upstreamCache.set(
+      key,
+      (async () => {
+        const [owner, repo, ref, file] = spec;
+        const commitResponse = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/commits/${ref}`,
+          { headers: { "User-Agent": "draw-local-notices" } },
+        );
+        if (!commitResponse.ok) throw new Error(`Cannot resolve ${key}.`);
+        const { sha } = await commitResponse.json();
+        const url = `https://raw.githubusercontent.com/${owner}/${repo}/${sha}/${file}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Cannot read ${url}.`);
+        let text = await response.text();
+        if (file === "README.md") {
+          const section = text.match(/^## License\s*\n([\s\S]*)$/im);
+          if (!section) throw new Error(`No License section in ${url}.`);
+          text = section[1];
+        }
+        return { name: file, text: text.trim(), source: url };
+      })(),
+    );
+  }
+  return upstreamCache.get(key);
+}
 
 async function sourceFromInstalledPackages() {
   const source = {};
   for (const pkg of entries) {
-    const manifest = JSON.parse(
-      await fs.readFile(path.join(pkg.location, "package.json"), "utf8"),
+    if (pkg.name.startsWith("@lickle/lock-")) {
+      const parent = source[`@lickle/lock@${pkg.version}`];
+      if (!parent)
+        throw new Error(`Missing parent license for ${identity(pkg)}.`);
+      source[identity(pkg)] = {
+        ...parent,
+        notices: parent.notices.map((notice) => ({ ...notice })),
+      };
+      continue;
+    }
+    const manifestText = await fs.readFile(
+      path.join(pkg.location, "package.json"),
+      "utf8",
     );
+    const manifest = JSON.parse(manifestText);
     const names = (await fs.readdir(pkg.location, { withFileTypes: true }))
       .filter((entry) => entry.isFile() && noticeName.test(entry.name))
       .map((entry) => entry.name)
       .sort();
-    const license =
+    let license =
       typeof manifest.license === "string" ? manifest.license : "SEE PACKAGE";
+    if (pkg.name === "khroma" || pkg.name === "fuzzy") license = "MIT";
+    const notices = await Promise.all(
+      names.map(async (name) => ({
+        name,
+        text: (await fs.readFile(path.join(pkg.location, name), "utf8"))
+          .trim()
+          .replaceAll("\r\n", "\n")
+          .replace(/[ \t]+$/gm, ""),
+        source: `${pkg.archive ?? `npm:${identity(pkg)}`}#${name}`,
+      })),
+    );
     source[identity(pkg)] = {
       license,
       repository:
@@ -60,19 +117,7 @@ async function sourceFromInstalledPackages() {
           : typeof manifest.repository?.url === "string"
             ? manifest.repository.url
             : undefined,
-      notices: await Promise.all(
-        names.map(async (name) => ({
-          name,
-          text: (await fs.readFile(path.join(pkg.location, name), "utf8"))
-            .trim()
-            .replaceAll("\r\n", "\n")
-            .replace(/[ \t]+$/gm, ""),
-        })),
-      ).then((notices) =>
-        notices.length || license !== "MIT"
-          ? notices
-          : [{ name: "LICENSE (standard MIT text)", text: mit }],
-      ),
+      notices: notices.length ? notices : [await upstreamNotice(pkg)],
     };
   }
   return source;
@@ -89,10 +134,21 @@ const packages = entries.map((pkg) => {
   if (!record)
     throw new Error(`Missing bundled notice source for ${identity(pkg)}.`);
   if (
-    /^(MIT|Apache-2\.0|BSD-[23]-Clause)$/.test(record.license) &&
-    !record.notices.length
+    !record.license ||
+    record.license === "SEE PACKAGE" ||
+    !Array.isArray(record.notices) ||
+    !record.notices.length ||
+    record.notices.some(
+      (notice) =>
+        !notice.text?.trim() ||
+        !notice.source ||
+        /standard MIT text/i.test(notice.name) ||
+        /^MIT License\s+Copyright \(c\) <year> <copyright holders>/i.test(
+          notice.text,
+        ),
+    )
   )
-    throw new Error(`Missing required license text for ${identity(pkg)}.`);
+    throw new Error(`Incomplete or placeholder notice for ${identity(pkg)}.`);
   return { name: pkg.name, version: pkg.version, ...record };
 });
 const noticeData = [
@@ -114,8 +170,9 @@ for (const pkg of noticeData) {
   if (pkg.repository) out += `- Repository: ${pkg.repository}\n`;
   out += "\n";
   for (const notice of pkg.notices)
-    out += `### ${notice.name}\n\n\`\`\`text\n${notice.text}\n\`\`\`\n\n`;
+    out += `### ${notice.name}\n\n- Source: ${notice.source ?? "draw-local LICENSE"}\n\n\`\`\`text\n${notice.text}\n\`\`\`\n\n`;
 }
+out = out.trimEnd() + "\n";
 const json = JSON.stringify(noticeData, null, 2) + "\n";
 if (process.argv.includes("--check")) {
   const current = await Promise.all([

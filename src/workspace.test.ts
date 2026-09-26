@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   mkdir,
   mkdtemp,
@@ -513,6 +514,131 @@ test("a crash-left transfer marker can be replaced by a new destination", async 
   }
 });
 
+test("an edited draft can leave an old transfer target and save elsewhere", async () => {
+  const base = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-transfer-edit-"),
+  );
+  const root = path.join(base, "project");
+  await mkdir(root);
+  try {
+    const options = isolated(base);
+    const ws = new Workspace(root, options);
+    const project = await ws.registerProject(root);
+    const original = { ...doc, elements: [{ id: "original" }] };
+    const edited = { ...doc, elements: [{ id: "edited" }] };
+    const draft = await ws.createDraft(original);
+    await ws.createProjectFile(project.id, "old.excalidraw", original);
+    await writeFile(
+      path.join(options.draftsPath, `${draft.id}.transfer.json`),
+      JSON.stringify({
+        draftId: draft.id,
+        projectId: project.id,
+        path: "old.excalidraw",
+        draftRevision: draft.revision,
+        documentRevision: "old-transfer",
+      }),
+    );
+    const changed = await ws.writeDraft(draft.id, edited, draft.revision);
+    await assert.rejects(
+      () =>
+        ws.saveDraft(
+          draft.id,
+          project.id,
+          "old.excalidraw",
+          edited,
+          changed.revision,
+        ),
+      /already exists/,
+    );
+    await ws.saveDraft(
+      draft.id,
+      project.id,
+      "new.excalidraw",
+      edited,
+      changed.revision,
+    );
+    assert.deepEqual(
+      (await ws.readProjectFile(project.id, "old.excalidraw")).document,
+      original,
+    );
+    assert.deepEqual(
+      (await ws.readProjectFile(project.id, "new.excalidraw")).document,
+      edited,
+    );
+    assert.deepEqual(await ws.listDrafts(), []);
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("a transfer marker for a removed project does not strand a draft", async () => {
+  const base = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-transfer-removed-"),
+  );
+  const root = path.join(base, "project"),
+    oldRoot = path.join(base, "old");
+  await Promise.all([mkdir(root), mkdir(oldRoot)]);
+  try {
+    const options = isolated(base);
+    const ws = new Workspace(root, options);
+    const current = await ws.registerProject(root);
+    const old = await ws.registerProject(oldRoot);
+    const draft = await ws.createDraft(doc);
+    await ws.createProjectFile(old.id, "old.excalidraw", doc);
+    await writeFile(
+      path.join(options.draftsPath, `${draft.id}.transfer.json`),
+      JSON.stringify({
+        draftId: draft.id,
+        projectId: old.id,
+        path: "old.excalidraw",
+      }),
+    );
+    await ws.removeProject(old.id);
+    await ws.saveDraft(draft.id, current.id, "new.excalidraw", doc);
+    assert.deepEqual(
+      (await ws.readProjectFile(current.id, "new.excalidraw")).document,
+      doc,
+    );
+    assert.deepEqual(
+      JSON.parse(await readFile(path.join(oldRoot, "old.excalidraw"), "utf8")),
+      doc,
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("a crash after draft removal leaves the saved project copy intact", async () => {
+  const base = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-transfer-complete-"),
+  );
+  const root = path.join(base, "project");
+  await mkdir(root);
+  try {
+    const options = isolated(base);
+    const ws = new Workspace(root, options);
+    const project = await ws.registerProject(root);
+    const draft = await ws.createDraft(doc);
+    await ws.createProjectFile(project.id, "saved.excalidraw", doc);
+    await writeFile(
+      path.join(options.draftsPath, `${draft.id}.transfer.json`),
+      JSON.stringify({
+        draftId: draft.id,
+        projectId: project.id,
+        path: "saved.excalidraw",
+      }),
+    );
+    await rm(path.join(options.draftsPath, `${draft.id}.excalidraw`));
+    assert.deepEqual(await ws.listDrafts(), []);
+    assert.deepEqual(
+      (await ws.readProjectFile(project.id, "saved.excalidraw")).document,
+      doc,
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
 test("ownerless private locks are reclaimed after a creator crash", async () => {
   const root = await mkdtemp(
     path.join(os.tmpdir(), "draw-local-lock-recovery-"),
@@ -537,6 +663,168 @@ test("ownerless private locks are reclaimed after a creator crash", async () => 
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("legacy directory locks recover once without overlapping writers", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-legacy-lock-"));
+  try {
+    const options = isolated(root);
+    const first = new Workspace(root, options),
+      second = new Workspace(root, options);
+    const target = path.join(root, "shared.excalidraw");
+    const legacy = path.join(
+      path.dirname(options.configPath),
+      "locks",
+      createHash("sha256").update(`write:${target}`).digest("hex"),
+    );
+    await mkdir(legacy, { recursive: true });
+    await writeFile(
+      path.join(legacy, "owner.json"),
+      JSON.stringify({ pid: 99999999, host: os.hostname() }),
+    );
+    const results = await Promise.allSettled([
+      first.createProjectFile("default", "shared.excalidraw", doc),
+      second.createProjectFile("default", "shared.excalidraw", doc),
+    ]);
+    assert.equal(
+      results.filter((item) => item.status === "fulfilled").length,
+      1,
+    );
+    assert.equal(
+      results.filter((item) => item.status === "rejected").length,
+      1,
+    );
+    await assert.rejects(() => stat(legacy), { code: "ENOENT" });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("two processes reclaim one legacy lock and enter separately", async () => {
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-process-lock-"),
+  );
+  try {
+    const options = isolated(root);
+    const identity = "test:cross-process";
+    const legacy = path.join(
+      path.dirname(options.configPath),
+      "locks",
+      createHash("sha256").update(identity).digest("hex"),
+    );
+    const events = path.join(root, "events.txt");
+    await mkdir(legacy, { recursive: true });
+    await writeFile(
+      path.join(legacy, "owner.json"),
+      JSON.stringify({ pid: 99999999, host: os.hostname() }),
+    );
+    const source = `
+      import {appendFile} from "node:fs/promises";
+      import {Workspace} from "./src/workspace.ts";
+      const ws = new Workspace(process.env.LOCK_TEST_ROOT, {
+        configPath: process.env.LOCK_TEST_CONFIG,
+        draftsPath: process.env.LOCK_TEST_DRAFTS,
+      });
+      await ws.withProcessLock("test:cross-process", async () => {
+        await appendFile(process.env.LOCK_TEST_EVENTS, "start\\n");
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await appendFile(process.env.LOCK_TEST_EVENTS, "end\\n");
+      });
+    `;
+    const env = {
+      ...process.env,
+      LOCK_TEST_ROOT: root,
+      LOCK_TEST_CONFIG: options.configPath,
+      LOCK_TEST_DRAFTS: options.draftsPath,
+      LOCK_TEST_EVENTS: events,
+    };
+    await Promise.all([
+      git(
+        process.execPath,
+        ["--import", "tsx", "--input-type=module", "-e", source],
+        { env },
+      ),
+      git(
+        process.execPath,
+        ["--import", "tsx", "--input-type=module", "-e", source],
+        { env },
+      ),
+    ]);
+    assert.deepEqual((await readFile(events, "utf8")).trim().split("\n"), [
+      "start",
+      "end",
+      "start",
+      "end",
+    ]);
+    await assert.rejects(() => stat(legacy), { code: "ENOENT" });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a live legacy owner remains exclusive until it releases", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-live-lock-"));
+  try {
+    const options = isolated(root);
+    const ws = new Workspace(root, options);
+    const legacy = path.join(
+      path.dirname(options.configPath),
+      "locks",
+      createHash("sha256")
+        .update(`write:${path.join(root, "live.excalidraw")}`)
+        .digest("hex"),
+    );
+    await mkdir(path.dirname(legacy), { recursive: true });
+    await writeFile(
+      legacy,
+      JSON.stringify({ pid: process.pid, host: os.hostname() }),
+    );
+    let settled = false;
+    const pending = ws.write("live.excalidraw", doc).finally(() => {
+      settled = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    assert.equal(settled, false);
+    await rm(legacy);
+    await pending;
+    assert.deepEqual(await ws.read("live.excalidraw"), doc);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test(
+  "a reused legacy PID is distinguished by process start time on Linux",
+  { skip: process.platform !== "linux" },
+  async () => {
+    const root = await mkdtemp(
+      path.join(os.tmpdir(), "draw-local-reused-pid-"),
+    );
+    try {
+      const options = isolated(root);
+      const ws = new Workspace(root, options);
+      const legacy = path.join(
+        path.dirname(options.configPath),
+        "locks",
+        createHash("sha256")
+          .update(`write:${path.join(root, "reused.excalidraw")}`)
+          .digest("hex"),
+      );
+      await mkdir(path.dirname(legacy), { recursive: true });
+      await writeFile(
+        legacy,
+        JSON.stringify({
+          pid: process.pid,
+          host: os.hostname(),
+          startedAt: "a previous process",
+        }),
+      );
+      await ws.write("reused.excalidraw", doc);
+      assert.deepEqual(await ws.read("reused.excalidraw"), doc);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
 
 test("concurrent project renames do not replace a destination", async () => {
   const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-rename-race-"));
@@ -761,6 +1049,7 @@ test("git context discovers a visible drawing in a nested repository without a r
       path.join(nested, "second.excalidraw"),
       JSON.stringify(doc),
     );
+    await writeFile(path.join(base, "sibling.excalidraw"), JSON.stringify(doc));
     const ws = new Workspace(base, isolated(base));
     const project = await ws.registerProject(base);
     const internals = ws as unknown as {
@@ -779,9 +1068,15 @@ test("git context discovers a visible drawing in a nested repository without a r
     const context = await ws.gitContext(project.id, [
       "nested/inside.excalidraw",
       "nested/second.excalidraw",
+      "sibling.excalidraw",
     ]);
-    assert.equal(context.available, true);
+    assert.equal(context.available, false);
     assert.equal(context.branch, undefined);
+    assert.deepEqual(context.repositoryPaths.sort(), [
+      "nested/inside.excalidraw",
+      "nested/second.excalidraw",
+    ]);
+    assert.equal(context.statuses["sibling.excalidraw"], undefined);
     assert.equal(
       context.statuses["nested/inside.excalidraw"]?.label,
       "Modified",
