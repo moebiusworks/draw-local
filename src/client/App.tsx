@@ -161,6 +161,69 @@ function IconButton({
   );
 }
 
+function Modal({
+  children,
+  labelledBy,
+  onClose,
+  restoreFocusId,
+}: {
+  children: React.ReactNode;
+  labelledBy: string;
+  onClose: () => void;
+  restoreFocusId: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    window.requestAnimationFrame(() =>
+      ref.current
+        ?.querySelector<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        )
+        ?.focus(),
+    );
+    return () => {
+      window.requestAnimationFrame(() =>
+        window.document.getElementById(restoreFocusId)?.focus(),
+      );
+    };
+  }, [restoreFocusId]);
+  return (
+    <div
+      ref={ref}
+      className="dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={labelledBy}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          onClose();
+          return;
+        }
+        if (event.key !== "Tab") return;
+        const focusable = [
+          ...(ref.current?.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          ) ?? []),
+        ];
+        if (!focusable.length) return;
+        const index = focusable.indexOf(
+          window.document.activeElement as HTMLElement,
+        );
+        if (event.shiftKey && index <= 0) {
+          event.preventDefault();
+          focusable.at(-1)?.focus();
+        } else if (!event.shiftKey && index === focusable.length - 1) {
+          event.preventDefault();
+          focusable[0]?.focus();
+        }
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 function storedPathSet(key: string) {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(key) ?? "[]");
@@ -1234,6 +1297,7 @@ export function App() {
             revealShortcut={showShortcuts}
           />
           <IconButton
+            id="save-command"
             icon="save"
             command="save"
             disabled={!open}
@@ -1464,7 +1528,11 @@ export function App() {
           >
             <Icon name="github" />
           </a>
-          <IconButton icon="licenses" onClick={() => setLicenses(true)} />
+          <IconButton
+            id="licenses-command"
+            icon="licenses"
+            onClick={() => setLicenses(true)}
+          />
         </div>
         <div className="expanded-only status" role="status">
           {status}
@@ -1495,14 +1563,20 @@ export function App() {
           </div>
         )}
         {destination && (
-          <div className="dialog">
+          <Modal
+            labelledBy="save-dialog-title"
+            onClose={() => setDestination(false)}
+            restoreFocusId="save-command"
+          >
             <form
               onSubmit={(event) => {
                 event.preventDefault();
                 void saveTo();
               }}
             >
-              <h2>{open?.kind === "draft" ? "Save drawing" : "Save As"}</h2>
+              <h2 id="save-dialog-title">
+                {open?.kind === "draft" ? "Save drawing" : "Save As"}
+              </h2>
               <label>
                 Project
                 <select
@@ -1539,12 +1613,16 @@ export function App() {
                 Cancel
               </button>
             </form>
-          </div>
+          </Modal>
         )}
         {picker && (
-          <div className="dialog">
+          <Modal
+            labelledBy="folder-picker-title"
+            onClose={closePicker}
+            restoreFocusId="browse-folders"
+          >
             <div className="folder-picker">
-              <h2>Choose project folder</h2>
+              <h2 id="folder-picker-title">Choose project folder</h2>
               <label>
                 Folder path
                 <input
@@ -1610,14 +1688,13 @@ export function App() {
               </button>
               <button onClick={closePicker}>Cancel</button>
             </div>
-          </div>
+          </Modal>
         )}
         {licenses && (
-          <div
-            className="dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="licenses-title"
+          <Modal
+            labelledBy="licenses-title"
+            onClose={() => setLicenses(false)}
+            restoreFocusId="licenses-command"
           >
             <div className="license-viewer">
               <div className="dialog-heading">
@@ -1695,7 +1772,7 @@ export function App() {
                 })()}
               </div>
             </div>
-          </div>
+          </Modal>
         )}
       </main>
     </div>

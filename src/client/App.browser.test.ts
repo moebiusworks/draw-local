@@ -39,6 +39,25 @@ test("Ctrl+Alt+N is suppressed in a dialog and editable control", async ({
   ).toBeVisible();
 });
 
+test("workspace dialogs trap context and restore their launcher focus", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const browse = page.getByRole("button", { name: "Browse folders" });
+  await browse.click();
+  await expect(
+    page.getByRole("dialog", { name: "Choose project folder" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(browse).toBeFocused();
+
+  const licenses = page.getByRole("button", { name: "Licenses" });
+  await licenses.click();
+  await expect(page.getByRole("dialog", { name: "Licenses" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(licenses).toBeFocused();
+});
+
 test("library callback retains the active draft identity and window target", async ({
   page,
 }) => {
