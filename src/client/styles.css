@@ -225,6 +225,14 @@ select {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.project-git-context {
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .git {
   min-height: 28px;
   padding: 7px 10px;

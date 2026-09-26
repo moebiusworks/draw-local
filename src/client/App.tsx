@@ -24,6 +24,12 @@ type ProjectEntry = {
   kind: "directory" | "file";
   revision?: string;
 };
+type GitContext = {
+  available: boolean;
+  branch?: string;
+  defaultBranch?: string;
+  statuses: Record<string, { label: string }>;
+};
 type Notice = {
   name: string;
   version: string;
@@ -206,12 +212,7 @@ export function App() {
     ),
     [destinationProject, setDestinationProject] = useState(""),
     [destinationPath, setDestinationPath] = useState("untitled.excalidraw"),
-    [git, setGit] = useState<{
-      available: boolean;
-      branch?: string;
-      defaultBranch?: string;
-      statuses: Record<string, { label: string }>;
-    }>({ available: false, statuses: {} }),
+    [gitByProject, setGitByProject] = useState<Record<string, GitContext>>({}),
     [theme, setTheme] = useState<"light" | "dark">(() =>
       window.matchMedia("(prefers-color-scheme: dark)").matches
         ? "dark"
@@ -264,6 +265,12 @@ export function App() {
     if (!window.name)
       window.name = `drawlocal${crypto.randomUUID().replaceAll("-", "")}`;
   }, []);
+  const refreshGit = useCallback(async (id: string) => {
+    const context = await request<GitContext>(
+      `/api/project/git?projectId=${encodeURIComponent(id)}`,
+    );
+    setGitByProject((current) => ({ ...current, [id]: context }));
+  }, []);
   const refresh = useCallback(async (id?: string) => {
     const sequence = ++refreshSequence.current;
     const [nextProjects, nextDrafts] = await Promise.all([
@@ -275,7 +282,7 @@ export function App() {
     setDrafts(nextDrafts);
     const selected = id ?? projectIdRef.current;
     if (selected) {
-      const context = await request<typeof git>(
+      const context = await request<GitContext>(
         `/api/project/git?projectId=${encodeURIComponent(selected)}`,
       );
       if (
@@ -284,7 +291,7 @@ export function App() {
       )
         return;
       setFiles([]);
-      setGit(context);
+      setGitByProject((current) => ({ ...current, [selected]: context }));
     }
   }, []);
   const selectProject = useCallback(
@@ -319,6 +326,9 @@ export function App() {
         setStatus(`Folder failed: ${(error as Error).message}`);
       }
     }
+    void refreshGit(id).catch((error: Error) =>
+      setStatus(`Git refresh failed: ${error.message}`),
+    );
   };
   useEffect(() => {
     localStorage.setItem(
@@ -330,12 +340,24 @@ export function App() {
     for (const identity of expandedEntries) {
       if (projectEntries[identity]) continue;
       const [id, relative = ""] = identity.split(":", 2);
-      if (projects.some((project) => project.id === id && project.available))
+      if (projects.some((project) => project.id === id && project.available)) {
         void loadProjectEntries(id!, relative).catch((error: Error) =>
           setStatus(`Folder failed: ${error.message}`),
         );
+        if (!gitByProject[id!])
+          void refreshGit(id!).catch((error: Error) =>
+            setStatus(`Git refresh failed: ${error.message}`),
+          );
+      }
     }
-  }, [expandedEntries, loadProjectEntries, projectEntries, projects]);
+  }, [
+    expandedEntries,
+    gitByProject,
+    loadProjectEntries,
+    projectEntries,
+    projects,
+    refreshGit,
+  ]);
   const load = useCallback(async (next: Open) => {
     const identity = key(next);
     if (documentStates.current.get(identity) === "conflict") {
@@ -747,12 +769,19 @@ export function App() {
       );
   }, [licenses, notices.length]);
   const activeProject = projects.find((project) => project.id === projectId);
+  const git = projectId
+    ? (gitByProject[projectId] ?? { available: false, statuses: {} })
+    : { available: false, statuses: {} };
   const libraryReturnUrl = open
     ? encodeURIComponent(
         `${window.location.origin}${window.location.pathname}?${open.kind === "draft" ? `draft=${open.id}` : `project=${open.projectId}&file=${encodeURIComponent(open.path)}`}`,
       )
     : undefined;
   const renderProjectEntries = (id: string, relative = "", level = 2) => {
+    const projectGit = gitByProject[id] ?? {
+      available: false,
+      statuses: {},
+    };
     const identity = `${id}:${relative}`;
     if (!expandedEntries.has(identity)) return null;
     return projectEntries[identity]?.map((entry) => {
@@ -782,7 +811,8 @@ export function App() {
         );
       }
       const label =
-        git.statuses[entry.path]?.label ?? (git.available ? "Committed" : "");
+        projectGit.statuses[entry.path]?.label ??
+        (projectGit.available ? "Committed" : "");
       return (
         <button
           key={childIdentity}
@@ -1196,6 +1226,7 @@ export function App() {
             {projects.map((project) => {
               const rootIdentity = `${project.id}:`;
               const expanded = expandedEntries.has(rootIdentity);
+              const projectGit = gitByProject[project.id];
               return (
                 <div
                   key={project.id}
@@ -1236,6 +1267,13 @@ export function App() {
                     <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
                     {project.name}
                     {project.available ? "" : " (unavailable)"}
+                    {projectGit && (
+                      <span className="project-git-context">
+                        {projectGit.available
+                          ? (projectGit.branch ?? "Detached HEAD")
+                          : "Not Git"}
+                      </span>
+                    )}
                   </button>
                   <div
                     className="project-controls"
