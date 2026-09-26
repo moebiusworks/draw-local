@@ -70,7 +70,7 @@ Example host configuration:
 }
 ```
 
-Tools: `list_diagrams`, `read_diagram`, `write_diagram`, `rename_diagram`, `delete_diagram`, `git_status`, `git_diff`, and `git_commit`.
+Tools: `list_diagrams`, `list_projects`, `list_project_diagrams`, `read_project_diagram`, `read_diagram`, `write_diagram`, `rename_diagram`, `delete_diagram`, `git_status`, `git_diff`, and `git_commit`. The write, rename, delete, and status tools accept an optional `projectId`; omitting it preserves the legacy `DRAW_LOCAL_ROOT` behavior.
 
 Git commits are disabled unless you explicitly set `DRAW_LOCAL_ALLOW_GIT_WRITE=1`. The commit tool requires explicit paths; it intentionally has no commit-everything mode.
 
