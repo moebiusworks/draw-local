@@ -160,6 +160,44 @@ test("projects and drafts persist separately and first save is exclusive", async
   }
 });
 
+test("project lifecycle preserves identity and never alters registered directories", async () => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-lifecycle-"));
+  const first = path.join(base, "first");
+  const replacement = path.join(base, "replacement");
+  const second = path.join(base, "second");
+  try {
+    await Promise.all([mkdir(first), mkdir(replacement), mkdir(second)]);
+    await writeFile(path.join(first, "keep.excalidraw"), JSON.stringify(doc));
+    const ws = new Workspace(first, isolated(base));
+    await ws.init();
+    const [defaultProject] = await ws.listProjects();
+    const other = await ws.registerProject(second);
+    await ws.reorderProjects([other.id, defaultProject!.id]);
+    assert.deepEqual(
+      (await ws.listProjects()).map((project) => project.id),
+      [other.id, defaultProject!.id],
+    );
+    const located = await ws.locateProject(defaultProject!.id, replacement);
+    assert.equal(located.id, defaultProject!.id);
+    assert.equal(located.path, await realpath(replacement));
+    await assert.rejects(
+      () => ws.locateProject(other.id, replacement),
+      /already registered/,
+    );
+    await ws.removeProject(defaultProject!.id);
+    assert.deepEqual(
+      (await ws.listProjects()).map((project) => project.id),
+      [other.id],
+    );
+    assert.equal(
+      await readFile(path.join(first, "keep.excalidraw"), "utf8"),
+      JSON.stringify(doc),
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
 test("draft display names are persisted without changing draft identity", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-draft-name-"));
   try {

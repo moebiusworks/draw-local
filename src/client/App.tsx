@@ -859,6 +859,69 @@ export function App() {
       setStatus(`Delete failed: ${(error as Error).message}`);
     }
   };
+  const reorderProjects = async (ids: string[]) => {
+    try {
+      setProjects(
+        await request<Project[]>("/api/projects/order", {
+          method: "PUT",
+          body: JSON.stringify({ ids }),
+        }),
+      );
+    } catch (error) {
+      setStatus(`Project order failed: ${(error as Error).message}`);
+    }
+  };
+  const moveProject = (id: string, direction: -1 | 1) => {
+    const index = projects.findIndex((project) => project.id === id);
+    const destination = index + direction;
+    if (index < 0 || destination < 0 || destination >= projects.length) return;
+    const ids = projects.map((project) => project.id);
+    [ids[index], ids[destination]] = [ids[destination]!, ids[index]!];
+    void reorderProjects(ids);
+  };
+  const retryProject = async () => {
+    try {
+      setProjects(await request<Project[]>("/api/projects"));
+    } catch (error) {
+      setStatus(`Project retry failed: ${(error as Error).message}`);
+    }
+  };
+  const locateProject = async (project: Project) => {
+    const directory = window.prompt("Replacement project folder", project.path);
+    if (!directory) return;
+    try {
+      await request<Project>(
+        `/api/projects/${encodeURIComponent(project.id)}/locate`,
+        { method: "POST", body: JSON.stringify({ path: directory }) },
+      );
+      await retryProject();
+    } catch (error) {
+      setStatus(`Locate project failed: ${(error as Error).message}`);
+    }
+  };
+  const removeProject = async (project: Project) => {
+    const isOpen = open?.kind === "file" && open.projectId === project.id;
+    if (
+      !window.confirm(
+        `Remove ${project.name} from this workspace? Its files will not be changed.`,
+      )
+    )
+      return;
+    try {
+      if (isOpen) await flush(open);
+      if (isOpen) await newDraft();
+      await request<void>(`/api/projects/${encodeURIComponent(project.id)}`, {
+        method: "DELETE",
+      });
+      if (projectId === project.id) {
+        projectIdRef.current = undefined;
+        setProjectId(undefined);
+      }
+      await retryProject();
+    } catch (error) {
+      setStatus(`Remove project failed: ${(error as Error).message}`);
+    }
+  };
   return (
     <div
       className={`shell ${panelCollapsed ? "panel-collapsed" : ""}`}
@@ -995,6 +1058,21 @@ export function App() {
                   aria-level={1}
                   aria-expanded={project.available ? expanded : undefined}
                   className="tree-row project-root"
+                  draggable
+                  onDragStart={(event) =>
+                    event.dataTransfer.setData("text/plain", project.id)
+                  }
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    const moving = event.dataTransfer.getData("text/plain");
+                    const ids = projects.map((item) => item.id);
+                    const from = ids.indexOf(moving);
+                    const to = ids.indexOf(project.id);
+                    if (from < 0 || to < 0 || from === to) return;
+                    ids.splice(to, 0, ids.splice(from, 1)[0]!);
+                    void reorderProjects(ids);
+                  }}
                 >
                   <button
                     type="button"
@@ -1014,6 +1092,55 @@ export function App() {
                     {project.name}
                     {project.available ? "" : " (unavailable)"}
                   </button>
+                  <div
+                    className="project-controls"
+                    aria-label={`${project.name} actions`}
+                  >
+                    {project.available ? (
+                      <>
+                        <button
+                          type="button"
+                          className="text-button"
+                          onClick={() => moveProject(project.id, -1)}
+                          disabled={projects[0]?.id === project.id}
+                        >
+                          Move up
+                        </button>
+                        <button
+                          type="button"
+                          className="text-button"
+                          onClick={() => moveProject(project.id, 1)}
+                          disabled={projects.at(-1)?.id === project.id}
+                        >
+                          Move down
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className="text-button"
+                          onClick={() => void retryProject()}
+                        >
+                          Retry
+                        </button>
+                        <button
+                          type="button"
+                          className="text-button"
+                          onClick={() => void locateProject(project)}
+                        >
+                          Locate
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() => void removeProject(project)}
+                    >
+                      Remove
+                    </button>
+                  </div>
                   <div role="group">{renderProjectEntries(project.id)}</div>
                 </div>
               );

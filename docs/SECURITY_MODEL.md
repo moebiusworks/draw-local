@@ -15,6 +15,7 @@ draw-local is intended as a local, single-user developer tool, not a public mult
 - Directory registration canonicalizes an existing readable directory. Directory browsing is read-only; state-changing API requests also validate a same-loopback Origin when one is supplied.
 - The browser folder picker omits hidden directories and does not expose operating-system sensitive roots by default. This includes Linux system roots, macOS system and user Library paths, and Windows system/program/recovery roots plus per-user AppData, including mounted Windows volumes. This limits accidental disclosure in the UI; registered projects still use their explicit canonical paths.
 - Project explorer expansion reads only the immediate children of an explicitly registered root or already validated relative directory. It rejects absolute and parent-traversal paths, omits hidden and symbolic-link entries, and never recursively scans unopened folders.
+- Project removal and replacement modify only the private registration list. Replacement canonicalizes an existing directory and rejects registrations already owned by another project; removal never deletes or writes the registered directory.
 - Git uses `execFile` with fixed argument arrays, not a shell.
 - Git status/diff are read-only; commits require explicit opt-in and explicit file paths.
 - MCP uses stdio and opens no network listener.

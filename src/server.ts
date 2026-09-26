@@ -70,6 +70,32 @@ app.post(
       );
   }),
 );
+app.put(
+  "/api/projects/order",
+  route(async (req, res) => {
+    if (!Array.isArray(req.body.ids))
+      throw new Error("Project IDs must be an array.");
+    res.json(await workspace.reorderProjects(req.body.ids.map(String)));
+  }),
+);
+app.post(
+  "/api/projects/:id/locate",
+  route(async (req, res) => {
+    res.json(
+      await workspace.locateProject(
+        String(req.params.id),
+        String(req.body.path ?? ""),
+      ),
+    );
+  }),
+);
+app.delete(
+  "/api/projects/:id",
+  route(async (req, res) => {
+    await workspace.removeProject(String(req.params.id));
+    res.status(204).end();
+  }),
+);
 app.get(
   "/api/directories",
   route(async (req, res) => {

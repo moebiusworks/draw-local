@@ -322,6 +322,20 @@ select {
   width: 14px;
   color: var(--muted);
 }
+.project-root {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.project-controls {
+  display: flex;
+  gap: 2px;
+  padding: 0 8px 4px 22px;
+}
+.project-controls .text-button {
+  min-width: auto;
+  min-height: 24px;
+  padding: 2px 4px;
+  font-size: 10px;
+}
 .git-icon {
   display: inline-block;
   width: 18px;

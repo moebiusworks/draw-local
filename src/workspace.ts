@@ -175,6 +175,51 @@ export class Workspace {
       return { ...project, available: true };
     });
   }
+  async reorderProjects(ids: string[]) {
+    return this.withLock(`registry:${this.configPath}`, async () => {
+      const projects = await this.registry();
+      if (
+        ids.length !== projects.length ||
+        new Set(ids).size !== ids.length ||
+        ids.some((id) => !projects.some((project) => project.id === id))
+      )
+        throw new Error(
+          "Project order must contain every registered project once.",
+        );
+      const byId = new Map(projects.map((project) => [project.id, project]));
+      const ordered = ids.map((id) => byId.get(id)!);
+      await this.saveRegistry(ordered);
+      return this.listProjects();
+    });
+  }
+  async locateProject(id: string, directory: string) {
+    const canonical = await this.canonicalDirectory(directory);
+    return this.withLock(`registry:${this.configPath}`, async () => {
+      const projects = await this.registry();
+      const index = projects.findIndex((project) => project.id === id);
+      if (index < 0) throw new Error("Unknown project.");
+      if (
+        projects.some(
+          (project) => project.id !== id && project.path === canonical,
+        )
+      )
+        throw new Error(
+          "That directory is already registered as another project.",
+        );
+      const updated = { ...projects[index]!, path: canonical };
+      projects[index] = updated;
+      await this.saveRegistry(projects);
+      return { ...updated, available: true };
+    });
+  }
+  async removeProject(id: string) {
+    return this.withLock(`registry:${this.configPath}`, async () => {
+      const projects = await this.registry();
+      if (!projects.some((project) => project.id === id))
+        throw new Error("Unknown project.");
+      await this.saveRegistry(projects.filter((project) => project.id !== id));
+    });
+  }
   private isSensitiveBrowsePath(directory: string) {
     const home = path.resolve(os.homedir());
     const sensitiveRoots = [
