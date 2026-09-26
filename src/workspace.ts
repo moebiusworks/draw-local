@@ -76,6 +76,9 @@ export class Workspace {
       entries: entries.filter((entry) => entry.isDirectory() && !entry.isSymbolicLink() && !entry.name.startsWith(".")).map((entry) => entry.name).sort(),
     };
   }
+  async resolveDirectory(directory: string) {
+    return { path: await this.canonicalDirectory(directory) };
+  }
   private async projectRoot(id: string) { const project = (await this.listProjects()).find((item) => item.id === id); if (!project) throw new Error("Unknown project."); if (!project.available) throw new Error(project.error || "Project is unavailable."); return project.path; }
   private resolve(root: string, relative: string) { if (!relative || path.isAbsolute(relative)) throw new Error("Path must be project-relative."); const portable = relative.replaceAll("\\", "/"); if (portable.split("/").includes("..")) throw new Error("Parent traversal is not allowed."); const target = path.resolve(root, portable); if (target !== root && !target.startsWith(root + path.sep)) throw new Error("Path escapes project root."); return target; }
   private assertFile(relative: string) { if (!extensions.has(path.extname(relative).toLowerCase())) throw new Error("Only .excalidraw and .excalidrawlib files are allowed."); }
@@ -154,13 +157,14 @@ export class Workspace {
     });
   }
   async list() { await this.init(); return this.listRoot(this.root); } async read(relative: string) { return (await this.readRoot(this.root, relative)).document; } async write(relative: string, value: unknown) { await this.writeRoot(this.root, relative, value); } async remove(relative: string) { this.assertFile(relative); const target = this.resolve(this.root, relative); await this.assertNoSymlink(this.root, target); await fs.unlink(target); } async rename(from: string, to: string) { this.assertFile(from); this.assertFile(to); const source = this.resolve(this.root, from), target = this.resolve(this.root, to); await this.assertNoSymlink(this.root, source); await this.assertNoSymlink(this.root, target); await fs.mkdir(path.dirname(target), { recursive: true, mode: 0o700 }); await fs.rename(source, target); }
-  private async git(args: string[], cwd: string) { const { stdout, stderr } = await execFileAsync("git", args, { cwd, timeout: 10000, maxBuffer: 5 * 1024 * 1024, windowsHide: true }); return (stdout || stderr).trim(); }
+  private async gitRaw(args: string[], cwd: string) { const { stdout, stderr } = await execFileAsync("git", args, { cwd, timeout: 10000, maxBuffer: 5 * 1024 * 1024, windowsHide: true }); return stdout || stderr; }
+  private async git(args: string[], cwd: string) { return (await this.gitRaw(args, cwd)).trim(); }
   async gitContext(id: string) {
     const root = await this.projectRoot(id);
     try {
       const repo = await this.git(["rev-parse", "--show-toplevel"], root);
       const branch = await this.git(["symbolic-ref", "--short", "-q", "HEAD"], root).catch(() => "detached HEAD");
-      const raw = await this.git(["status", "--porcelain=v1", "-z", "--ignored", "--untracked-files=all", "--", "."], root);
+      const raw = await this.gitRaw(["status", "--porcelain=v1", "-z", "--ignored", "--untracked-files=all", "--", "."], root);
       const prefix = path.relative(repo, root).replaceAll(path.sep, "/");
       const statuses: Record<string, { index: string; worktree: string; label: string }> = {};
       const records = raw.split("\0");

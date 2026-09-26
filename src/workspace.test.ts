@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { promisify } from "node:util";
 import { Workspace } from "./workspace";
 
 const doc = { type: "excalidraw", version: 2, elements: [], appState: {}, files: {} };
 const isolated = (root: string) => ({ configPath: path.join(root, ".test-config", "projects.json"), draftsPath: path.join(root, ".test-data", "drafts") });
+const git = promisify(execFile);
 
 test("writes, lists and reads drawings", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-"));
@@ -142,4 +145,24 @@ test("sensitive macOS and Windows locations are excluded from the folder picker"
   assert.equal(sensitive.isSensitiveBrowsePath("/mnt/c/Program Files"), true);
   assert.equal(sensitive.isSensitiveBrowsePath("/mnt/c/Users/alice/AppData/Roaming"), true);
   assert.equal(sensitive.isSensitiveBrowsePath("/mnt/c/Users/alice/Documents"), false);
+});
+
+test("git context is project-relative and distinguishes file states", async () => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-git-")); const root = path.join(base, "nested"); await mkdir(root);
+  try {
+    await git("git", ["init"], { cwd: base }); await git("git", ["config", "user.email", "test@example.invalid"], { cwd: base }); await git("git", ["config", "user.name", "Test"], { cwd: base });
+    await Promise.all([writeFile(path.join(root, "clean.excalidraw"), JSON.stringify(doc)), writeFile(path.join(root, "modified.excalidraw"), JSON.stringify(doc)), writeFile(path.join(root, "staged.excalidraw"), JSON.stringify(doc)), writeFile(path.join(root, "both.excalidraw"), JSON.stringify(doc)), writeFile(path.join(base, ".gitignore"), "nested/ignored.excalidraw\n")]);
+    await git("git", ["add", "."], { cwd: base }); await git("git", ["commit", "-m", "initial"], { cwd: base });
+    await writeFile(path.join(root, "modified.excalidraw"), JSON.stringify({ ...doc, elements: [{ id: "modified" }] }));
+    await writeFile(path.join(root, "staged.excalidraw"), JSON.stringify({ ...doc, elements: [{ id: "staged" }] })); await git("git", ["add", "nested/staged.excalidraw"], { cwd: base });
+    await writeFile(path.join(root, "both.excalidraw"), JSON.stringify({ ...doc, elements: [{ id: "staged" }] })); await git("git", ["add", "nested/both.excalidraw"], { cwd: base }); await writeFile(path.join(root, "both.excalidraw"), JSON.stringify({ ...doc, elements: [{ id: "modified" }] }));
+    await Promise.all([writeFile(path.join(root, "untracked name.excalidraw"), JSON.stringify(doc)), writeFile(path.join(root, "ignored.excalidraw"), JSON.stringify(doc))]);
+    const ws = new Workspace(root, isolated(base)); const project = await ws.registerProject(root); const statuses = (await ws.gitContext(project.id)).statuses as Record<string, { label: string }>;
+    assert.equal(statuses["clean.excalidraw"], undefined); assert.equal(statuses["modified.excalidraw"].label, "Modified", JSON.stringify(statuses)); assert.equal(statuses["staged.excalidraw"].label, "Staged"); assert.equal(statuses["both.excalidraw"].label, "Staged; Modified"); assert.equal(statuses["untracked name.excalidraw"].label, "Untracked"); assert.equal(statuses["ignored.excalidraw"].label, "Ignored");
+  } finally { await rm(base, { recursive: true, force: true }); }
+});
+
+test("typed directory resolution canonicalizes an explicit path", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-resolve-"));
+  try { const ws = new Workspace(root, isolated(root)); assert.deepEqual(await ws.resolveDirectory(root), { path: await realpath(root) }); await assert.rejects(() => ws.resolveDirectory(path.join(root, "missing"))); } finally { await rm(root, { recursive: true, force: true }); }
 });
