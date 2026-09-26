@@ -13,3 +13,19 @@
 .canvas { min-width:0; min-height:0; }
 .empty { display:grid; place-content:center; height:100%; max-width:620px; margin:auto; padding:32px; text-align:center; }
 .empty p { color:#57606a; line-height:1.5; }
+.project { display:grid; gap:6px; padding:8px 10px; font-size:12px; border-bottom:1px solid #eee; }
+.project select, .project button { min-width:0; }
+.project-path { overflow:hidden; color:#57606a; font-family:ui-monospace, monospace; font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
+.git { padding:7px 10px; color:#57606a; font-size:12px; border-bottom:1px solid #eee; }
+.files strong { display:block; color:#57606a; font-size:11px; margin:10px 8px 4px; text-transform:uppercase; }
+.git-icon { display:inline-block; width:18px; color:#57606a; }
+.dialog { position:fixed; inset:0; display:grid; place-items:center; background:#0005; z-index:10; }
+.dialog > div, .dialog form { width:min(460px, calc(100% - 32px)); padding:22px; border-radius:10px; background:#fff; box-shadow:0 12px 40px #0004; }
+.dialog button { margin-right:8px; }
+.dialog label { display:grid; gap:5px; margin:12px 0; font-size:13px; }
+.dialog input, .dialog select { width:100%; padding:7px; border:1px solid #d0d7de; border-radius:6px; font:inherit; }
+.selected-path { overflow:hidden; border:1px solid #d0d7de; border-radius:6px; margin:10px 0; padding:8px; font-family:ui-monospace, monospace; text-overflow:ellipsis; white-space:nowrap; }
+.folder-actions { margin-bottom:8px; }
+.folder-list { max-height:300px; overflow:auto; border:1px solid #d0d7de; border-radius:6px; margin:8px 0 14px; }
+.folder-list button { display:block; width:100%; border:0; border-radius:0; background:transparent; padding:8px; text-align:left; }
+.folder-list button:hover { background:#f3f4f6; }

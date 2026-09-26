@@ -4,3 +4,4 @@ public/excalidraw-assets/
 .env
 *.log
 .DS_Store
+.local/

@@ -6,7 +6,8 @@ draw-local keeps ordinary `.excalidraw` files as the source of truth. It is aime
 
 ## What it provides
 
-- Multiple drawings in a normal folder tree.
+- Multiple registered local project directories, each with a normal folder tree.
+- Unnamed drafts that autosave in local application data until first Save.
 - Excalidraw embedded as the editor.
 - Debounced autosave to real `.excalidraw` files.
 - No database, cloud account, telemetry, or collaboration backend.
@@ -44,7 +45,9 @@ architecture/
     └── cloud-native.excalidrawlib
 ```
 
-The browser currently lists drawing files; the storage service and MCP layer also allow `.excalidrawlib`, leaving room for repo-managed library UX later.
+Use **New** (or Ctrl+Alt+N) to create an unnamed draft. Ctrl/Command+S flushes its current save; for a draft, choose a registered project and a relative `.excalidraw` filename. **Save As** copies a saved drawing to a new project/path and then edits that copy. Existing destinations are never overwritten implicitly. Registered projects are stored in `$XDG_CONFIG_HOME/draw-local/projects.json` (or `~/.config/draw-local/projects.json`); drafts live in `$XDG_DATA_HOME/draw-local/drafts/` (or `~/.local/share/draw-local/drafts/`).
+
+The selected Git project shows its branch and per-file read-only state. Save only writes drawing JSON; it never stages or commits.
 
 ## MCP
 

@@ -9,6 +9,9 @@ const server = new McpServer({ name: "draw-local", version: "0.1.0" }, { instruc
 const text = (value: unknown) => ({ content: [{ type: "text" as const, text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }] });
 
 server.registerTool("list_diagrams", { description: "List drawings and libraries.", inputSchema: {} }, async () => text(await workspace.list()));
+server.registerTool("list_projects", { description: "List registered local project directories. Existing tools continue to use DRAW_LOCAL_ROOT during migration.", inputSchema: {} }, async () => text(await workspace.listProjects()));
+server.registerTool("list_project_diagrams", { description: "List drawings in one registered project.", inputSchema: { projectId: z.string().min(1) } }, async ({ projectId }) => text(await workspace.listProjectFiles(projectId)));
+server.registerTool("read_project_diagram", { description: "Read a drawing from one registered project.", inputSchema: { projectId: z.string().min(1), path: z.string().min(1) } }, async ({ projectId, path }) => text((await workspace.readProjectFile(projectId, path)).document));
 server.registerTool("read_diagram", { description: "Read an Excalidraw JSON file.", inputSchema: { path: z.string().min(1) } }, async ({ path }) => text(await workspace.read(path)));
 server.registerTool("write_diagram", { description: "Create or replace an Excalidraw JSON file.", inputSchema: { path: z.string().min(1), document: z.record(z.string(), z.unknown()) } }, async ({ path, document }) => { await workspace.write(path, document); return text(`Saved ${path}`); });
 server.registerTool("rename_diagram", { description: "Rename/move a drawing within the workspace.", inputSchema: { from: z.string().min(1), to: z.string().min(1) } }, async ({ from, to }) => { await workspace.rename(from, to); return text(`Renamed ${from} -> ${to}`); });

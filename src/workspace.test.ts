@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -23,5 +23,79 @@ test("rejects traversal and unsupported extensions", async () => {
     const ws = new Workspace(root);
     await assert.rejects(() => ws.write("../escape.excalidraw", doc));
     await assert.rejects(() => ws.write("notes.txt", {}));
+    await assert.rejects(() => ws.write("invalid.EXCALIDRAW", {}), /Invalid Excalidraw document/);
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("does not follow links outside the workspace", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-"));
+  const outside = await mkdtemp(path.join(os.tmpdir(), "draw-local-outside-"));
+  try {
+    const ws = new Workspace(root);
+    await writeFile(path.join(outside, "private.excalidraw"), JSON.stringify(doc));
+    await symlink(outside, path.join(root, "linked"), "dir");
+    await symlink(path.join(outside, "private.excalidraw"), path.join(root, "linked-file.excalidraw"));
+    assert.deepEqual(await ws.list(), []);
+    await assert.rejects(() => ws.read("linked/private.excalidraw"), /Symbolic links/);
+    await assert.rejects(() => ws.read("linked-file.excalidraw"), /Symbolic links/);
+    await assert.rejects(() => ws.write("linked/new.excalidraw", doc), /Symbolic links/);
+    await assert.rejects(() => ws.rename("linked-file.excalidraw", "renamed.excalidraw"), /Symbolic links/);
+    assert.equal(await readFile(path.join(outside, "private.excalidraw"), "utf8"), JSON.stringify(doc));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
+test("projects and drafts persist separately and first save is exclusive", async () => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-projects-"));
+  const first = path.join(base, "first"), second = path.join(base, "second");
+  await Promise.all([mkdir(first), mkdir(second)]);
+  const options = { configPath: path.join(base, "config", "projects.json"), draftsPath: path.join(base, "data", "drafts") };
+  try {
+    const ws = new Workspace(first, options); await ws.init();
+    const a = await ws.registerProject(first), b = await ws.registerProject(second);
+    const draft = await ws.createDraft({ ...doc, elements: [{ id: "draft" }] });
+    await ws.writeDraft(draft.id, { ...doc, elements: [{ id: "latest" }] }, draft.revision);
+    await ws.saveDraft(draft.id, a.id, "overview.excalidraw", { ...doc, elements: [{ id: "latest" }] });
+    await ws.writeProjectFile(b.id, "overview.excalidraw", { ...doc, elements: [{ id: "other" }] });
+    assert.equal(((await ws.readProjectFile(a.id, "overview.excalidraw")).document as { elements: { id: string }[] }).elements[0].id, "latest");
+    assert.equal(((await ws.readProjectFile(b.id, "overview.excalidraw")).document as { elements: { id: string }[] }).elements[0].id, "other");
+    assert.deepEqual(await ws.listDrafts(), []);
+    await assert.rejects(() => ws.createProjectFile(a.id, "overview.excalidraw", doc), /already exists/);
+    const restarted = new Workspace(first, options); assert.equal((await restarted.listProjects()).filter((item) => item.available).length >= 2, true);
+  } finally { await rm(base, { recursive: true, force: true }); }
+});
+
+test("project writes reject an external revision change", async () => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-revision-"));
+  const root = path.join(base, "project"); await mkdir(root);
+  try {
+    const ws = new Workspace(root, { configPath: path.join(base, "config", "projects.json"), draftsPath: path.join(base, "data", "drafts") });
+    const project = await ws.registerProject(root); await ws.writeProjectFile(project.id, "overview.excalidraw", doc);
+    const revision = (await ws.readProjectFile(project.id, "overview.excalidraw")).revision;
+    await writeFile(path.join(root, "overview.excalidraw"), JSON.stringify({ ...doc, elements: [{ id: "external" }] }));
+    await assert.rejects(() => ws.writeProjectFile(project.id, "overview.excalidraw", doc, revision), /changed outside/);
+  } finally { await rm(base, { recursive: true, force: true }); }
+});
+
+test("folder browsing omits hidden directories", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-browse-"));
+  try {
+    await Promise.all([mkdir(path.join(root, "visible")), mkdir(path.join(root, ".hidden"))]);
+    const ws = new Workspace(root, { configPath: path.join(root, "config", "projects.json"), draftsPath: path.join(root, "data", "drafts") });
+    const listing = await ws.browseDirectory(root);
+    assert.deepEqual(listing.entries, ["visible"]);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("sensitive macOS and Windows locations are excluded from the folder picker", async () => {
+  const ws = new Workspace("/tmp");
+  const sensitive = ws as unknown as { isSensitiveBrowsePath(directory: string): boolean };
+  assert.equal(sensitive.isSensitiveBrowsePath("/System/Library"), true);
+  assert.equal(sensitive.isSensitiveBrowsePath("/Library/Application Support"), true);
+  assert.equal(sensitive.isSensitiveBrowsePath("/mnt/c/Windows/System32"), true);
+  assert.equal(sensitive.isSensitiveBrowsePath("/mnt/c/Program Files"), true);
+  assert.equal(sensitive.isSensitiveBrowsePath("/mnt/c/Users/alice/AppData/Roaming"), true);
+  assert.equal(sensitive.isSensitiveBrowsePath("/mnt/c/Users/alice/Documents"), false);
 });
