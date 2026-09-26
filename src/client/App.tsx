@@ -106,6 +106,7 @@ function Icon({
 }
 
 function IconButton({
+  id,
   icon,
   command,
   disabled,
@@ -113,6 +114,7 @@ function IconButton({
   onClick,
   revealShortcut,
 }: {
+  id?: string;
   icon: "new" | "save" | "save-as" | "panel" | "folder" | "github" | "licenses";
   command?: keyof typeof commands;
   disabled?: boolean;
@@ -138,6 +140,7 @@ function IconButton({
     : label;
   return (
     <button
+      id={id}
       className="icon-button"
       type="button"
       onClick={onClick}
@@ -562,10 +565,16 @@ export function App() {
         body: JSON.stringify({ path: directory.path }),
       });
       selectProject(project.id);
-      setPicker(false);
+      closePicker();
     } catch (error) {
       setStatus(`Add directory failed: ${(error as Error).message}`);
     }
+  };
+  const closePicker = () => {
+    setPicker(false);
+    requestAnimationFrame(() =>
+      window.document.getElementById("browse-folders")?.focus(),
+    );
   };
   const openDestination = () => {
     setDestinationProject(projectId ?? "");
@@ -1338,6 +1347,7 @@ export function App() {
             revealShortcut={showShortcuts}
           />
           <IconButton
+            id="browse-folders"
             icon="folder"
             command="browse-folders"
             onClick={() => void openPicker()}
@@ -1490,7 +1500,7 @@ export function App() {
               <button disabled={!directory} onClick={() => void addDirectory()}>
                 Use this folder
               </button>
-              <button onClick={() => setPicker(false)}>Cancel</button>
+              <button onClick={closePicker}>Cancel</button>
             </div>
           </div>
         )}
