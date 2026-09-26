@@ -182,6 +182,11 @@ export function App() {
     [destination, setDestination] = useState(false),
     [picker, setPicker] = useState(false),
     [directory, setDirectory] = useState<Directory>(),
+    [pickerNodes, setPickerNodes] = useState<Record<string, Directory>>({}),
+    [pickerRoots, setPickerRoots] = useState<string[]>([]),
+    [expandedPickerNodes, setExpandedPickerNodes] = useState<Set<string>>(
+      new Set(),
+    ),
     [destinationProject, setDestinationProject] = useState(""),
     [destinationPath, setDestinationPath] = useState("untitled.excalidraw"),
     [git, setGit] = useState<{
@@ -443,11 +448,11 @@ export function App() {
   };
   const browse = async (target?: string) => {
     try {
-      setDirectory(
-        await request<Directory>(
-          `/api/directories${target ? `?path=${encodeURIComponent(target)}` : ""}`,
-        ),
+      const next = await request<Directory>(
+        `/api/directories${target ? `?path=${encodeURIComponent(target)}` : ""}`,
       );
+      setDirectory(next);
+      setPickerNodes((nodes) => ({ ...nodes, [next.path]: next }));
     } catch (error) {
       setStatus(`Directory failed: ${(error as Error).message}`);
     }
@@ -459,13 +464,25 @@ export function App() {
         `/api/directories/resolve?path=${encodeURIComponent(directory.path)}`,
       );
       setDirectory({ path: resolved.path, entries: [] });
+      await browse(resolved.path);
     } catch (error) {
       setStatus(`Directory failed: ${(error as Error).message}`);
     }
   };
   const openPicker = async () => {
     setPicker(true);
-    await browse();
+    try {
+      const home = await request<Directory>("/api/directories");
+      const roots = [
+        ...new Set([home.path, ...projects.map((project) => project.path)]),
+      ];
+      setPickerRoots(roots);
+      setPickerNodes({ [home.path]: home });
+      setDirectory(home);
+      setExpandedPickerNodes(new Set([home.path]));
+    } catch (error) {
+      setStatus(`Directory failed: ${(error as Error).message}`);
+    }
   };
   const addDirectory = async () => {
     if (!directory) return;
@@ -922,6 +939,65 @@ export function App() {
       setStatus(`Remove project failed: ${(error as Error).message}`);
     }
   };
+  const togglePickerNode = async (path: string) => {
+    const wasExpanded = expandedPickerNodes.has(path);
+    setExpandedPickerNodes((current) => {
+      const next = new Set(current);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+    if (!wasExpanded && !pickerNodes[path]) {
+      try {
+        const next = await request<Directory>(
+          `/api/directories?path=${encodeURIComponent(path)}`,
+        );
+        setPickerNodes((nodes) => ({ ...nodes, [path]: next }));
+      } catch (error) {
+        setStatus(`Directory failed: ${(error as Error).message}`);
+      }
+    }
+  };
+  const renderPickerNode = (path: string, name: string, level = 1) => {
+    const node = pickerNodes[path];
+    const expanded = expandedPickerNodes.has(path);
+    return (
+      <div
+        key={path}
+        role="treeitem"
+        aria-level={level}
+        aria-expanded={expanded}
+        aria-selected={directory?.path === path}
+        className="picker-tree-row"
+      >
+        <button
+          type="button"
+          className="tree-button"
+          onClick={() => setDirectory(node ?? { path, entries: [] })}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowRight") {
+              event.preventDefault();
+              void togglePickerNode(path);
+            }
+            if (event.key === "ArrowLeft" && expanded) {
+              event.preventDefault();
+              void togglePickerNode(path);
+            }
+          }}
+        >
+          <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
+          {name}
+        </button>
+        {expanded && (
+          <div role="group">
+            {node?.entries.map((entry) =>
+              renderPickerNode(`${path}/${entry}`, entry, level + 1),
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
   return (
     <div
       className={`shell ${panelCollapsed ? "panel-collapsed" : ""}`}
@@ -1278,17 +1354,15 @@ export function App() {
                   Resolve path
                 </button>
               </div>
-              <div className="folder-list">
-                {directory?.entries.map((entry) => (
-                  <button
-                    key={entry}
-                    onClick={() =>
-                      directory && void browse(`${directory.path}/${entry}`)
-                    }
-                  >
-                    {entry}
-                  </button>
-                ))}
+              <div className="folder-list" role="tree" aria-label="Folder tree">
+                {pickerRoots.map((root) =>
+                  renderPickerNode(
+                    root,
+                    root === directory?.path
+                      ? root
+                      : (root.split("/").filter(Boolean).at(-1) ?? root),
+                  ),
+                )}
               </div>
               <button disabled={!directory} onClick={() => void addDirectory()}>
                 Use this folder
