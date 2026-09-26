@@ -972,6 +972,20 @@ export function App() {
           className="tree-button"
           onClick={() => setDirectory(node ?? { path, entries: [] })}
           onKeyDown={(event) => {
+            const buttons = [
+              ...(event.currentTarget
+                .closest('[role="tree"]')
+                ?.querySelectorAll<HTMLButtonElement>(".tree-button") ?? []),
+            ];
+            const index = buttons.indexOf(event.currentTarget);
+            if (event.key === "ArrowDown" && buttons[index + 1]) {
+              event.preventDefault();
+              buttons[index + 1]!.focus();
+            }
+            if (event.key === "ArrowUp" && buttons[index - 1]) {
+              event.preventDefault();
+              buttons[index - 1]!.focus();
+            }
             if (event.key === "ArrowRight") {
               event.preventDefault();
               void togglePickerNode(path);
