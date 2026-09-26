@@ -38,3 +38,45 @@ test("Ctrl+Alt+N is suppressed in a dialog and editable control", async ({
     page.getByRole("heading", { name: "Save drawing" }),
   ).toBeVisible();
 });
+
+test("library callback retains the active draft identity and window target", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("button", { name: "Untitled draft" }).click();
+  await expect(page.locator(".excalidraw")).toBeVisible();
+  const editorUrl = page.url();
+  await expect
+    .poll(() => page.evaluate(() => window.name))
+    .toMatch(/^drawlocal[a-z0-9]+$/i);
+  let libraryFetched = false;
+  await page.route("https://libraries.excalidraw.com/**", (route) => {
+    libraryFetched = true;
+    return route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        type: "excalidrawlib",
+        version: 2,
+        libraryItems: [
+          {
+            id: "imported-library-item",
+            status: "published",
+            created: 1,
+            elements: [],
+          },
+        ],
+      }),
+    });
+  });
+  const libraryUrl = "https://libraries.excalidraw.com/example.excalidrawlib";
+  await page.goto(
+    `${editorUrl}#addLibrary=${encodeURIComponent(libraryUrl)}&token=test`,
+  );
+  await expect(page.locator(".excalidraw")).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => location.search))
+    .toContain("draft=");
+  await expect.poll(() => libraryFetched).toBe(true);
+  await expect.poll(() => page.evaluate(() => location.hash)).toBe("");
+});

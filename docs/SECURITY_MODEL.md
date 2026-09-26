@@ -19,6 +19,7 @@ draw-local is intended as a local, single-user developer tool, not a public mult
 - Git status/diff are read-only; commits require explicit opt-in and explicit file paths.
 - MCP uses stdio and opens no network listener.
 - Excalidraw fonts are copied locally at install time.
+- Installing an Excalidraw public library is an explicit browser action. The browser uses Excalidraw's built-in library URL allowlist to fetch it; the server never fetches library URLs. Installed libraries are stored outside registered projects in one private, atomically written XDG application-data file, so the normal drawing runtime remains offline.
 
 ## Non-goals
 

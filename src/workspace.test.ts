@@ -6,6 +6,7 @@ import {
   readFile,
   realpath,
   rm,
+  stat,
   symlink,
   writeFile,
 } from "node:fs/promises";
@@ -178,6 +179,37 @@ test("draft display names are persisted without changing draft identity", async 
       (await ws.listDrafts()).map(({ id, name }) => ({ id, name })),
       [{ id: created.id, name: "Architecture" }],
     );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("library persistence is private, atomic, and preserves library item fields", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-library-"));
+  try {
+    const ws = new Workspace(root, isolated(root));
+    const library = {
+      libraryItems: [
+        {
+          id: "item",
+          status: "published",
+          elements: [],
+          futureField: { retained: true },
+        },
+      ],
+      futureEnvelope: "retained",
+    };
+    assert.equal(await ws.readLibrary(), null);
+    await ws.writeLibrary(library);
+    assert.deepEqual(await ws.readLibrary(), library);
+    await ws.writeLibrary({ libraryItems: [] });
+    assert.deepEqual(await ws.readLibrary(), {
+      ...library,
+      libraryItems: [],
+    });
+    await assert.rejects(() => ws.writeLibrary({ libraryItems: "no" }));
+    assert.deepEqual(await ws.readLibrary(), { ...library, libraryItems: [] });
+    assert.equal((await stat(ws.libraryPath)).mode & 0o077, 0);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -166,6 +166,19 @@ app.get(
     res.json(await workspace.listDrafts());
   }),
 );
+app.get(
+  "/api/library",
+  route(async (_req, res) => {
+    res.json(await workspace.readLibrary());
+  }),
+);
+app.put(
+  "/api/library",
+  route(async (req, res) => {
+    await workspace.writeLibrary(req.body);
+    res.status(204).end();
+  }),
+);
 app.post(
   "/api/drafts",
   route(async (req, res) => {

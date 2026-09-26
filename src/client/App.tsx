@@ -1,6 +1,7 @@
-import { Excalidraw } from "@excalidraw/excalidraw";
+import { Excalidraw, useHandleLibrary } from "@excalidraw/excalidraw";
+import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import "@excalidraw/excalidraw/index.css";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { mergeDocument } from "./document";
 import { commandTooltip, commands, platform } from "./shortcuts";
 
@@ -204,6 +205,8 @@ export function App() {
     [notices, setNotices] = useState<Notice[]>([]),
     [noticeSearch, setNoticeSearch] = useState(""),
     [selectedNotice, setSelectedNotice] = useState<string>("draw-local");
+  const [excalidrawAPI, setExcalidrawAPI] =
+    useState<ExcalidrawImperativeAPI | null>(null);
   const [renamingDraft, setRenamingDraft] = useState<string>(),
     [draftName, setDraftName] = useState(""),
     [draftNameError, setDraftNameError] = useState("");
@@ -217,6 +220,27 @@ export function App() {
     ),
     refreshSequence = useRef(0),
     projectIdRef = useRef<string | undefined>(undefined);
+  const libraryAdapter = useMemo(
+    () => ({
+      load: async () =>
+        request<{ libraryItems: unknown[] } | null>("/api/library"),
+      save: async (libraryData: { libraryItems: unknown[] }) => {
+        await request<void>("/api/library", {
+          method: "PUT",
+          body: JSON.stringify(libraryData),
+        });
+      },
+    }),
+    [],
+  );
+  useHandleLibrary({
+    excalidrawAPI,
+    adapter: libraryAdapter as never,
+  });
+  useEffect(() => {
+    if (!window.name)
+      window.name = `drawlocal${crypto.randomUUID().replaceAll("-", "")}`;
+  }, []);
   const refresh = useCallback(async (id?: string) => {
     const sequence = ++refreshSequence.current;
     const [nextProjects, nextDrafts] = await Promise.all([
@@ -304,7 +328,7 @@ export function App() {
       window.history.replaceState(
         null,
         "",
-        `?${next.kind === "draft" ? `draft=${next.id}` : `project=${next.projectId}&file=${encodeURIComponent(next.path)}`}`,
+        `?${next.kind === "draft" ? `draft=${next.id}` : `project=${next.projectId}&file=${encodeURIComponent(next.path)}`}${window.location.hash}`,
       );
       setStatus("Saved");
     } catch (error) {
@@ -648,6 +672,11 @@ export function App() {
       );
   }, [licenses, notices.length]);
   const activeProject = projects.find((project) => project.id === projectId);
+  const libraryReturnUrl = open
+    ? encodeURIComponent(
+        `${window.location.origin}${window.location.pathname}?${open.kind === "draft" ? `draft=${open.id}` : `project=${open.projectId}&file=${encodeURIComponent(open.path)}`}`,
+      )
+    : undefined;
   const renderProjectEntries = (id: string, relative = "", level = 2) => {
     const identity = `${id}:${relative}`;
     if (!expandedEntries.has(identity)) return null;
@@ -1035,6 +1064,8 @@ export function App() {
             key={key(open)}
             initialData={document as never}
             onChange={save as never}
+            excalidrawAPI={setExcalidrawAPI}
+            libraryReturnUrl={libraryReturnUrl}
           />
         ) : (
           <div className="empty">

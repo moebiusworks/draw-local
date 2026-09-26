@@ -35,11 +35,16 @@ export class Workspace {
   readonly gitWriteEnabled: boolean;
   readonly configPath: string;
   readonly draftsPath: string;
+  readonly libraryPath: string;
   private readonly locks = new Map<string, Promise<void>>();
   constructor(
     root = process.env.DRAW_LOCAL_ROOT ??
       path.resolve(process.cwd(), "diagrams"),
-    options?: { configPath?: string; draftsPath?: string },
+    options?: {
+      configPath?: string;
+      draftsPath?: string;
+      libraryPath?: string;
+    },
   ) {
     this.root = path.resolve(root);
     this.gitWriteEnabled = process.env.DRAW_LOCAL_ALLOW_GIT_WRITE === "1";
@@ -57,6 +62,9 @@ export class Workspace {
         "draw-local",
         "drafts",
       );
+    this.libraryPath =
+      options?.libraryPath ??
+      path.join(path.dirname(this.draftsPath), "library.excalidrawlib");
   }
   async init() {
     await fs.mkdir(this.root, { recursive: true, mode: 0o700 });
@@ -507,6 +515,38 @@ export class Workspace {
       value,
       expectedRevision,
     );
+  }
+  private validLibrary(
+    value: unknown,
+  ): asserts value is { libraryItems: unknown[] } {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      Array.isArray(value) ||
+      !Array.isArray((value as { libraryItems?: unknown }).libraryItems)
+    )
+      throw new Error("Invalid Excalidraw library.");
+  }
+  async readLibrary() {
+    try {
+      const value = JSON.parse(await fs.readFile(this.libraryPath, "utf8"));
+      this.validLibrary(value);
+      return value;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+      throw error;
+    }
+  }
+  async writeLibrary(value: unknown) {
+    this.validLibrary(value);
+    return this.withLock(`library:${this.libraryPath}`, async () => {
+      const previous = await this.readLibrary();
+      await this.writeAtomic(this.libraryPath, {
+        ...(previous ?? {}),
+        ...value,
+        libraryItems: value.libraryItems,
+      });
+    });
   }
   async saveDraft(
     id: string,
