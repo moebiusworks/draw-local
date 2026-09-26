@@ -28,7 +28,10 @@ type GitContext = {
   available: boolean;
   branch?: string;
   defaultBranch?: string;
-  statuses: Record<string, { label: string }>;
+  statuses: Record<
+    string,
+    { label: string; index?: string; worktree?: string }
+  >;
 };
 type Notice = {
   name: string;
@@ -312,6 +315,7 @@ export function App() {
     documentStates = useRef(
       new Map<string, "unsaved" | "saving" | "saved" | "conflict">(),
     ),
+    cancelledDraftRename = useRef<string | undefined>(undefined),
     loadSequence = useRef(0),
     refreshSequence = useRef(0),
     projectIdRef = useRef<string | undefined>(undefined);
@@ -362,6 +366,16 @@ export function App() {
       )
         return;
       setFiles([]);
+      // Entries are a cache for expansion, not a filesystem snapshot. Invalidate
+      // this project's expanded nodes so a focus/save/manual refresh observes
+      // added and removed files without recursively listing the whole tree.
+      setProjectEntries((entries) =>
+        Object.fromEntries(
+          Object.entries(entries).filter(
+            ([identity]) => !identity.startsWith(`${selected}:`),
+          ),
+        ),
+      );
       setGitByProject((current) => ({ ...current, [selected]: context }));
     }
   }, []);
@@ -567,7 +581,10 @@ export function App() {
       if (timer) {
         clearTimeout(timer);
         timers.current.delete(identity);
-        await persist(target);
+        // A conflicted source must never receive another stale-revision write.
+        // Its current in-memory snapshot is the recovery payload for Save As.
+        if (documentStates.current.get(identity) !== "conflict")
+          await persist(target);
       } else {
         try {
           await writes.current.get(identity);
@@ -704,6 +721,25 @@ export function App() {
                 document: content,
               }),
             });
+      // First Save deletes its source draft. If the editor changed while that
+      // transfer was in flight, retain the newer snapshot as a fresh draft
+      // instead of replacing the visible document with the older target.
+      if (
+        open.kind === "draft" &&
+        documents.current.get(key(open)) !== content
+      ) {
+        const recovery = await request<Draft>("/api/drafts", {
+          method: "POST",
+          body: JSON.stringify({ document: documents.current.get(key(open)) }),
+        });
+        await refresh(destinationProject);
+        await load({ kind: "draft", id: recovery.id });
+        setDestination(false);
+        setStatus(
+          "Saved to the project; newer edits remain in a recovery draft.",
+        );
+        return;
+      }
       documents.current.set(
         `project:${destinationProject}:${destinationPath}`,
         content,
@@ -768,7 +804,11 @@ export function App() {
       if (
         commands.save.matches(event, currentPlatform) &&
         openRef.current &&
-        !event.defaultPrevented
+        !event.defaultPrevented &&
+        !editable &&
+        !destination &&
+        !picker &&
+        !licenses
       ) {
         event.preventDefault();
         if (openRef.current.kind === "draft") openDestination();
@@ -964,6 +1004,22 @@ export function App() {
       const label =
         projectGit.statuses[entry.path]?.label ??
         (projectGit.available ? "Committed" : "");
+      const gitState = projectGit.statuses[entry.path];
+      const conflicted = gitState?.label === "Conflicted";
+      const base = conflicted
+        ? "◆"
+        : gitState?.index === "?"
+          ? "?"
+          : gitState?.index === "!"
+            ? "⊘"
+            : gitState?.index && gitState.index !== " "
+              ? "◆"
+              : "✓";
+      const overlay = conflicted
+        ? "!"
+        : gitState?.worktree && gitState.worktree !== " "
+          ? "●"
+          : "";
       return (
         <button
           key={childIdentity}
@@ -993,18 +1049,13 @@ export function App() {
           }}
         >
           {label && (
-            <span className="git-icon" aria-hidden="true">
-              {label === "Conflicted"
-                ? "⚠"
-                : label === "Untracked"
-                  ? "?"
-                  : label === "Ignored"
-                    ? "⊘"
-                    : label.includes("Staged")
-                      ? "◆"
-                      : label.includes("Modified")
-                        ? "●"
-                        : "✓"}
+            <span
+              className="git-icon"
+              aria-hidden="true"
+              data-git-state={label}
+            >
+              <span>{base}</span>
+              {overlay && <sup>{overlay}</sup>}
             </span>
           )}
           {entry.name}
@@ -1044,27 +1095,41 @@ export function App() {
           }),
         },
       );
-      documents.current.set(
-        `project:${open.projectId}:${next}`,
-        documents.current.get(key(open)),
-      );
-      documents.current.delete(key(open));
+      const oldIdentity = key(open);
+      const nextOpen: Open = {
+        kind: "file",
+        projectId: open.projectId,
+        path: next,
+      };
+      // Edits can arrive while the rename request is in flight. Move that
+      // latest in-memory snapshot to the new identity before reloading.
+      const latest = documents.current.get(oldIdentity);
+      const pending = timers.current.get(oldIdentity);
+      if (pending) clearTimeout(pending);
+      documents.current.set(`project:${open.projectId}:${next}`, latest);
+      documents.current.delete(oldIdentity);
       revisions.current.set(`project:${open.projectId}:${next}`, info.revision);
-      revisions.current.delete(key(open));
-      timers.current.delete(key(open));
-      writes.current.delete(key(open));
+      revisions.current.delete(oldIdentity);
+      timers.current.delete(oldIdentity);
+      writes.current.delete(oldIdentity);
+      if (latest !== undefined) await persist(nextOpen);
       await refresh(open.projectId);
-      await load({ kind: "file", projectId: open.projectId, path: next });
+      await load(nextOpen);
     } catch (error) {
       setStatus(`Rename failed: ${(error as Error).message}`);
     }
   };
   const beginDraftRename = (draft: Draft) => {
+    cancelledDraftRename.current = undefined;
     setRenamingDraft(draft.id);
     setDraftName(draft.name ?? "Untitled draft");
     setDraftNameError("");
   };
   const commitDraftRename = async (draft: Draft) => {
+    if (cancelledDraftRename.current === draft.id) {
+      cancelledDraftRename.current = undefined;
+      return;
+    }
     const name = draftName.trim();
     if (!name) return setDraftNameError("A draft name is required.");
     if (name.length > 100)
@@ -1100,6 +1165,9 @@ export function App() {
       );
       setRenamingDraft(undefined);
       setDraftNameError("");
+      requestAnimationFrame(() =>
+        window.document.getElementById(`draft-${draft.id}`)?.focus(),
+      );
       if (open?.kind === "draft" && open.id === draft.id) setDocument(next);
     } catch (error) {
       if (documents.current.get(identity) === attempted) {
@@ -1359,11 +1427,20 @@ export function App() {
                 <input
                   aria-label="Draft name"
                   autoFocus
+                  ref={(input) => input?.select()}
                   value={draftName}
                   onChange={(event) => setDraftName(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") void commitDraftRename(draft);
-                    if (event.key === "Escape") setRenamingDraft(undefined);
+                    if (event.key === "Escape") {
+                      cancelledDraftRename.current = draft.id;
+                      setRenamingDraft(undefined);
+                      requestAnimationFrame(() =>
+                        window.document
+                          .getElementById(`draft-${draft.id}`)
+                          ?.focus(),
+                      );
+                    }
                   }}
                   onBlur={() => void commitDraftRename(draft)}
                   aria-describedby={
@@ -1372,6 +1449,7 @@ export function App() {
                 />
               ) : (
                 <button
+                  id={`draft-${draft.id}`}
                   className={
                     open?.kind === "draft" && open.id === draft.id
                       ? "file active"

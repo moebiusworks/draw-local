@@ -34,7 +34,10 @@ export const commands: Record<CommandId, Command> = {
       value === "mac" ? "Meta+Alt+N" : "Control+Alt+N",
     label: (value) => (value === "mac" ? "⌘⌥N" : "Ctrl+Alt+N"),
     matches: (event, value) =>
-      primary(event, value) && event.altKey && physical(event, "KeyN"),
+      primary(event, value) &&
+      event.altKey &&
+      !event.shiftKey &&
+      physical(event, "KeyN"),
   },
   save: {
     id: "save",
@@ -56,6 +59,7 @@ export const commands: Record<CommandId, Command> = {
       event.altKey &&
       !event.ctrlKey &&
       !event.metaKey &&
+      !event.shiftKey &&
       physicalNumber(event, 0),
   },
   "browse-folders": {
@@ -67,6 +71,7 @@ export const commands: Record<CommandId, Command> = {
       event.altKey &&
       !event.ctrlKey &&
       !event.metaKey &&
+      !event.shiftKey &&
       physicalNumber(event, 1),
   },
 };

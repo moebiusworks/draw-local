@@ -353,9 +353,16 @@ select {
   font-size: 10px;
 }
 .git-icon {
-  display: inline-block;
+  display: inline-flex;
+  position: relative;
   width: 18px;
   color: var(--muted);
+}
+.git-icon sup {
+  margin-left: -4px;
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 800;
 }
 .status {
   padding: 10px 12px;

@@ -19,6 +19,27 @@ test("draw-local shortcuts have distinct platform chords", () => {
     );
     assert.equal(new Set(labels).size, labels.length);
   }
+  assert.equal(
+    commands.new.matches(
+      event({ code: "KeyN", ctrlKey: true, altKey: true, shiftKey: true }),
+      "other",
+    ),
+    false,
+  );
+  assert.equal(
+    commands["panel-toggle"].matches(
+      event({ code: "Numpad0", altKey: true, shiftKey: true }),
+      "other",
+    ),
+    false,
+  );
+  assert.equal(
+    commands["browse-folders"].matches(
+      event({ code: "Numpad1", altKey: true, shiftKey: true }),
+      "other",
+    ),
+    false,
+  );
 });
 
 test("registry uses physical Alt chords and platform primary modifiers", () => {

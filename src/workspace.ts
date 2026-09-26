@@ -106,12 +106,51 @@ export class Workspace {
       if (this.locks.get(identity) === queued) this.locks.delete(identity);
     }
   }
+  /**
+   * Coordinate independent browser and MCP processes. Lock directories are
+   * created atomically in private application data, never in a project tree.
+   * We deliberately fail closed rather than reclaiming a lock from a process
+   * that may still be writing.
+   */
+  private async withProcessLock<T>(identity: string, action: () => Promise<T>) {
+    const locksPath = path.join(path.dirname(this.configPath), "locks");
+    const lock = path.join(
+      locksPath,
+      createHash("sha256").update(identity).digest("hex"),
+    );
+    await fs.mkdir(locksPath, { recursive: true, mode: 0o700 });
+    const deadline = Date.now() + 10_000;
+    while (true) {
+      try {
+        await fs.mkdir(lock, { mode: 0o700 });
+        break;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+        if (Date.now() >= deadline)
+          throw new Error("Workspace is busy in another draw-local process.");
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+    }
+    try {
+      return await action();
+    } finally {
+      await fs.rmdir(lock).catch(() => {});
+    }
+  }
+  private async withWorkspaceLock<T>(
+    identity: string,
+    action: () => Promise<T>,
+  ) {
+    return this.withLock(identity, () =>
+      this.withProcessLock(identity, action),
+    );
+  }
   private async withLocks<T>(identities: string[], action: () => Promise<T>) {
     const unique = [...new Set(identities)].sort();
     const acquire = async (index: number): Promise<T> =>
       index === unique.length
         ? action()
-        : this.withLock(unique[index]!, () => acquire(index + 1));
+        : this.withWorkspaceLock(unique[index]!, () => acquire(index + 1));
     return acquire(0);
   }
   private async registry(): Promise<StoredProject[]> {
@@ -170,7 +209,7 @@ export class Workspace {
   }
   async registerProject(directory: string, name?: string): Promise<Project> {
     const canonical = await this.canonicalDirectory(directory);
-    return this.withLock(`registry:${this.configPath}`, async () => {
+    return this.withWorkspaceLock(`registry:${this.configPath}`, async () => {
       const projects = await this.registry();
       const existing = projects.find((project) => project.path === canonical);
       if (existing) return { ...existing, available: true };
@@ -184,7 +223,7 @@ export class Workspace {
     });
   }
   async reorderProjects(ids: string[]) {
-    return this.withLock(`registry:${this.configPath}`, async () => {
+    return this.withWorkspaceLock(`registry:${this.configPath}`, async () => {
       const projects = await this.registry();
       if (
         ids.length !== projects.length ||
@@ -202,7 +241,7 @@ export class Workspace {
   }
   async locateProject(id: string, directory: string) {
     const canonical = await this.canonicalDirectory(directory);
-    return this.withLock(`registry:${this.configPath}`, async () => {
+    return this.withWorkspaceLock(`registry:${this.configPath}`, async () => {
       const projects = await this.registry();
       const index = projects.findIndex((project) => project.id === id);
       if (index < 0) throw new Error("Unknown project.");
@@ -221,7 +260,7 @@ export class Workspace {
     });
   }
   async removeProject(id: string) {
-    return this.withLock(`registry:${this.configPath}`, async () => {
+    return this.withWorkspaceLock(`registry:${this.configPath}`, async () => {
       const projects = await this.registry();
       if (!projects.some((project) => project.id === id))
         throw new Error("Unknown project.");
@@ -458,7 +497,7 @@ export class Workspace {
     this.assertFile(relative);
     this.valid(value, relative);
     const target = this.resolve(root, relative);
-    return this.withLock(`write:${target}`, async () => {
+    return this.withWorkspaceLock(`write:${target}`, async () => {
       await this.assertNoSymlink(root, target);
       let source: string | undefined;
       try {
@@ -592,7 +631,7 @@ export class Workspace {
   }
   async writeLibrary(value: unknown) {
     this.validLibrary(value);
-    return this.withLock(`library:${this.libraryPath}`, async () => {
+    return this.withWorkspaceLock(`library:${this.libraryPath}`, async () => {
       const previous = await this.readLibrary();
       await this.writeAtomic(this.libraryPath, {
         ...(previous ?? {}),
@@ -609,7 +648,8 @@ export class Workspace {
     expectedRevision?: string,
   ) {
     const draftPath = this.resolve(this.draftsPath, `${id}.excalidraw`);
-    return this.withLock(`write:${draftPath}`, async () => {
+    const transferPath = path.join(this.draftsPath, `${id}.transfer.json`);
+    return this.withWorkspaceLock(`write:${draftPath}`, async () => {
       this.valid(value, "draft.excalidraw");
       const source = await fs.readFile(draftPath, "utf8");
       const revision = this.revision(source);
@@ -617,6 +657,39 @@ export class Workspace {
         throw new Error(
           "Draft changed outside this Save. Your local copy is still recoverable.",
         );
+      const transfer = {
+        projectId,
+        path: relative,
+        draftRevision: revision,
+        documentRevision: this.revision(json(value)),
+      };
+      let retry = false;
+      try {
+        const prior = JSON.parse(await fs.readFile(transferPath, "utf8"));
+        if (JSON.stringify(prior) !== JSON.stringify(transfer))
+          throw new Error("Destination already exists.");
+        retry = true;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+      if (!retry) {
+        // A marker only proves a retry of a transfer that started with an empty
+        // destination. Never create one for an already occupied filename.
+        try {
+          await this.readProjectFile(projectId, relative);
+          throw new Error("Destination already exists.");
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        }
+        try {
+          await this.writeAtomic(transferPath, transfer, true);
+        } catch (error) {
+          if ((error as Error).message !== "Destination already exists.")
+            throw error;
+          const prior = JSON.parse(await fs.readFile(transferPath, "utf8"));
+          if (JSON.stringify(prior) !== JSON.stringify(transfer)) throw error;
+        }
+      }
       try {
         const target = await this.createProjectFile(projectId, relative, value);
         const latest = await fs.readFile(draftPath, "utf8");
@@ -625,14 +698,16 @@ export class Workspace {
             "Draft changed during Save. The project copy was retained and the draft remains recoverable.",
           );
         await fs.unlink(draftPath);
+        await fs.unlink(transferPath).catch(() => {});
         return target;
       } catch (error) {
         if ((error as Error).message !== "Destination already exists.")
           throw error;
-        // A crash can leave the just-created target alongside its draft. Reconcile
-        // only the caller's submitted document, never an older draft snapshot.
+        // A crash can leave the just-created target alongside its draft. The
+        // private transfer marker proves that this exact draft initiated it;
+        // equal JSON alone is never enough to consume a draft.
         const target = await this.readProjectFile(projectId, relative);
-        if (JSON.stringify(target.document) !== JSON.stringify(value))
+        if (this.revision(json(target.document)) !== transfer.documentRevision)
           throw error;
         const latest = await fs.readFile(draftPath, "utf8");
         if (this.revision(latest) !== revision)
@@ -640,6 +715,7 @@ export class Workspace {
             "Draft changed during Save. The project copy was retained and the draft remains recoverable.",
           );
         await fs.unlink(draftPath);
+        await fs.unlink(transferPath).catch(() => {});
         return this.info(await this.projectRoot(projectId), relative);
       }
     });
@@ -662,7 +738,7 @@ export class Workspace {
     const root = await this.projectRoot(id);
     this.assertFile(relative);
     const target = this.resolve(root, relative);
-    return this.withLock(`write:${target}`, async () => {
+    return this.withWorkspaceLock(`write:${target}`, async () => {
       await this.assertNoSymlink(root, target);
       const source = await fs.readFile(target, "utf8");
       if (

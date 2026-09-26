@@ -50,7 +50,7 @@ server.registerTool(
     inputSchema: { projectId: z.string().min(1), path: z.string().min(1) },
   },
   async ({ projectId, path }) =>
-    text((await workspace.readProjectFile(projectId, path)).document),
+    text(await workspace.readProjectFile(projectId, path)),
 );
 server.registerTool(
   "read_diagram",
@@ -69,11 +69,15 @@ server.registerTool(
       path: z.string().min(1),
       projectId: z.string().min(1).optional(),
       document: z.record(z.string(), z.unknown()),
+      revision: z.string().min(1).optional(),
     },
   },
-  async ({ path, projectId, document }) => {
-    if (projectId) await workspace.writeProjectFile(projectId, path, document);
-    else await workspace.write(path, document);
+  async ({ path, projectId, document, revision }) => {
+    if (projectId) {
+      if (!revision)
+        throw new Error("revision is required for project writes.");
+      await workspace.writeProjectFile(projectId, path, document, revision);
+    } else await workspace.write(path, document);
     return text(`Saved ${path}`);
   },
 );
@@ -86,11 +90,15 @@ server.registerTool(
       from: z.string().min(1),
       to: z.string().min(1),
       projectId: z.string().min(1).optional(),
+      revision: z.string().min(1).optional(),
     },
   },
-  async ({ from, to, projectId }) => {
-    if (projectId) await workspace.renameProjectFile(projectId, from, to);
-    else await workspace.rename(from, to);
+  async ({ from, to, projectId, revision }) => {
+    if (projectId) {
+      if (!revision)
+        throw new Error("revision is required for project renames.");
+      await workspace.renameProjectFile(projectId, from, to, revision);
+    } else await workspace.rename(from, to);
     return text(`Renamed ${from} -> ${to}`);
   },
 );
@@ -102,11 +110,15 @@ server.registerTool(
     inputSchema: {
       path: z.string().min(1),
       projectId: z.string().min(1).optional(),
+      revision: z.string().min(1).optional(),
     },
   },
-  async ({ path, projectId }) => {
-    if (projectId) await workspace.removeProjectFile(projectId, path);
-    else await workspace.remove(path);
+  async ({ path, projectId, revision }) => {
+    if (projectId) {
+      if (!revision)
+        throw new Error("revision is required for project deletes.");
+      await workspace.removeProjectFile(projectId, path, revision);
+    } else await workspace.remove(path);
     return text(`Deleted ${path}`);
   },
 );

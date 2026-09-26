@@ -323,7 +323,7 @@ test("only one concurrent revision write succeeds and deletion conflicts", async
   }
 });
 
-test("concurrent registration retains each canonical project", async () => {
+test("concurrent registrations across workspace instances retain each project", async () => {
   const base = await mkdtemp(
     path.join(os.tmpdir(), "draw-local-registry-race-"),
   );
@@ -333,9 +333,10 @@ test("concurrent registration retains each canonical project", async () => {
   await Promise.all([mkdir(root), mkdir(a), mkdir(b)]);
   try {
     const ws = new Workspace(root, isolated(base));
+    const other = new Workspace(root, isolated(base));
     const [first, second] = await Promise.all([
       ws.registerProject(a),
-      ws.registerProject(b),
+      other.registerProject(b),
     ]);
     const ids = new Set((await ws.listProjects()).map((project) => project.id));
     assert.equal(ids.has(first.id), true);
@@ -345,6 +346,48 @@ test("concurrent registration retains each canonical project", async () => {
       ws.registerProject(a),
     ]);
     assert.equal(duplicate[0].id, duplicate[1].id);
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("independent workspace instances reject stale concurrent writes", async () => {
+  const base = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-process-race-"),
+  );
+  const root = path.join(base, "project");
+  await mkdir(root);
+  try {
+    const first = new Workspace(root, isolated(base));
+    const second = new Workspace(root, isolated(base));
+    const project = await first.registerProject(root);
+    const original = await first.createProjectFile(
+      project.id,
+      "race.excalidraw",
+      doc,
+    );
+    const results = await Promise.allSettled([
+      first.writeProjectFile(
+        project.id,
+        "race.excalidraw",
+        { ...doc, elements: [{ id: "a" }] },
+        original.revision,
+      ),
+      second.writeProjectFile(
+        project.id,
+        "race.excalidraw",
+        { ...doc, elements: [{ id: "b" }] },
+        original.revision,
+      ),
+    ]);
+    assert.equal(
+      results.filter((result) => result.status === "fulfilled").length,
+      1,
+    );
+    assert.equal(
+      results.filter((result) => result.status === "rejected").length,
+      1,
+    );
   } finally {
     await rm(base, { recursive: true, force: true });
   }
@@ -360,8 +403,14 @@ test("first-save retry reconciles an exact duplicate without deleting divergent 
     const exact = { ...doc, elements: [{ id: "same" }] };
     const draft = await ws.createDraft(exact);
     await ws.createProjectFile(project.id, "same.excalidraw", exact);
-    await ws.saveDraft(draft.id, project.id, "same.excalidraw", exact);
-    assert.deepEqual(await ws.listDrafts(), []);
+    await assert.rejects(
+      () => ws.saveDraft(draft.id, project.id, "same.excalidraw", exact),
+      /already exists/,
+    );
+    assert.equal(
+      (await ws.listDrafts()).some((item) => item.id === draft.id),
+      true,
+    );
     const divergent = await ws.createDraft({
       ...doc,
       elements: [{ id: "draft" }],

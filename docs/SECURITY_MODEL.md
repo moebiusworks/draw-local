@@ -12,6 +12,9 @@ draw-local is intended as a local, single-user developer tool, not a public mult
 - Nested symbolic links are rejected for file access and omitted from listings, preventing links in the workspace from redirecting operations outside the root. The explicitly configured workspace root may itself be a symbolic link.
 - Writable file extensions are allowlisted.
 - File replacement is atomic.
+- Browser and MCP processes serialize registry and drawing mutations through
+  private filesystem locks. A lock that cannot be acquired fails closed rather
+  than permitting an unchecked concurrent overwrite.
 - Directory registration canonicalizes an existing readable directory. Directory browsing is read-only; state-changing API requests also validate a same-loopback Origin when one is supplied.
 - The browser folder picker omits hidden directories and does not expose operating-system sensitive roots by default. This includes Linux system roots, macOS system and user Library paths, and Windows system/program/recovery roots plus per-user AppData, including mounted Windows volumes. This limits accidental disclosure in the UI; registered projects still use their explicit canonical paths.
 - Project explorer expansion reads only the immediate children of an explicitly registered root or already validated relative directory. It rejects absolute and parent-traversal paths, omits hidden and symbolic-link entries, and never recursively scans unopened folders.

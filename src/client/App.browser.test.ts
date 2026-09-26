@@ -39,6 +39,17 @@ test("Ctrl+Alt+N is suppressed in a dialog and editable control", async ({
   ).toBeVisible();
 });
 
+test("Save does not reset an active first-save dialog", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("button", { name: "Untitled draft" }).click();
+  await page.keyboard.press("Control+s");
+  const filename = page.getByRole("textbox", { name: "Filename" });
+  await filename.fill("custom.excalidraw");
+  await page.keyboard.press("Control+s");
+  await expect(filename).toHaveValue("custom.excalidraw");
+});
+
 test("workspace dialogs trap context and restore their launcher focus", async ({
   page,
 }) => {
