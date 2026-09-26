@@ -106,11 +106,20 @@ export class Workspace {
       if (this.locks.get(identity) === queued) this.locks.delete(identity);
     }
   }
+  private async processStartedAt(pid: number) {
+    if (process.platform !== "linux") return undefined;
+    try {
+      const stat = await fs.readFile(`/proc/${pid}/stat`, "utf8");
+      // Fields after the final ')' start at field 3; starttime is field 22.
+      return stat.slice(stat.lastIndexOf(")") + 2).split(" ")[19];
+    } catch {
+      return undefined;
+    }
+  }
   /**
-   * Coordinate independent browser and MCP processes. Lock directories are
-   * created atomically in private application data, never in a project tree.
-   * We deliberately fail closed rather than reclaiming a lock from a process
-   * that may still be writing.
+   * Coordinate independent browser and MCP processes with one private,
+   * atomically-created lock file. A lock is only reclaimed after its recorded
+   * process identity is gone; an incomplete creator gets a short grace period.
    */
   private async withProcessLock<T>(identity: string, action: () => Promise<T>) {
     const locksPath = path.join(path.dirname(this.configPath), "locks");
@@ -118,31 +127,64 @@ export class Workspace {
       locksPath,
       createHash("sha256").update(identity).digest("hex"),
     );
-    const owner = path.join(lock, "owner.json");
     await fs.mkdir(locksPath, { recursive: true, mode: 0o700 });
     const deadline = Date.now() + 10_000;
+    const owner = {
+      pid: process.pid,
+      host: os.hostname(),
+      startedAt: await this.processStartedAt(process.pid),
+      token: randomUUID(),
+    };
     while (true) {
       try {
-        await fs.mkdir(lock, { mode: 0o700 });
+        await fs.writeFile(lock, JSON.stringify(owner), {
+          encoding: "utf8",
+          mode: 0o600,
+          flag: "wx",
+        });
         break;
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
         try {
-          const record = JSON.parse(await fs.readFile(owner, "utf8")) as {
+          const source = await fs.readFile(lock, "utf8");
+          const record = JSON.parse(source) as {
             pid?: number;
             host?: string;
+            startedAt?: string;
+            token?: string;
           };
           if (record.host === os.hostname() && typeof record.pid === "number") {
+            let alive = false;
             try {
               process.kill(record.pid, 0);
+              const startedAt = await this.processStartedAt(record.pid);
+              alive =
+                !record.startedAt ||
+                !startedAt ||
+                startedAt === record.startedAt;
             } catch {
-              await fs.unlink(owner).catch(() => {});
-              await fs.rmdir(lock).catch(() => {});
-              continue;
+              alive = false;
+            }
+            if (!alive) {
+              // Re-read immediately before unlinking. This prevents a stale
+              // observer from deleting a replacement lock created by another
+              // reclaimer.
+              if (
+                (await fs.readFile(lock, "utf8").catch(() => "")) === source
+              ) {
+                await fs.unlink(lock).catch(() => {});
+                continue;
+              }
             }
           }
         } catch {
-          // A creator can be between mkdir and owner write; leave it alone.
+          // writeFile(wx) can leave an empty file only if its creator died.
+          // Give a live creator time to publish its record before reclaiming it.
+          const age = Date.now() - (await fs.stat(lock)).mtimeMs;
+          if (age > 1_000) {
+            await fs.unlink(lock).catch(() => {});
+            continue;
+          }
         }
         if (Date.now() >= deadline)
           throw new Error("Workspace is busy in another draw-local process.");
@@ -150,15 +192,13 @@ export class Workspace {
       }
     }
     try {
-      await fs.writeFile(
-        owner,
-        JSON.stringify({ pid: process.pid, host: os.hostname() }),
-        { encoding: "utf8", mode: 0o600, flag: "wx" },
-      );
       return await action();
     } finally {
-      await fs.unlink(owner).catch(() => {});
-      await fs.rmdir(lock).catch(() => {});
+      if (
+        (await fs.readFile(lock, "utf8").catch(() => "")) ===
+        JSON.stringify(owner)
+      )
+        await fs.unlink(lock).catch(() => {});
     }
   }
   private async withWorkspaceLock<T>(
@@ -230,6 +270,14 @@ export class Workspace {
         }
       }),
     );
+  }
+  async defaultProjectId() {
+    const root = await fs.realpath(this.root);
+    const project = (await this.listProjects()).find(
+      (item) => item.available && item.path === root,
+    );
+    if (!project) throw new Error("The default workspace is not registered.");
+    return project.id;
   }
   async registerProject(directory: string, name?: string): Promise<Project> {
     const canonical = await this.canonicalDirectory(directory);
@@ -687,6 +735,7 @@ export class Workspace {
             "Draft changed outside this Save. Your local copy is still recoverable.",
           );
         const transfer = {
+          draftId: id,
           projectId,
           path: relative,
           draftRevision: revision,
@@ -695,9 +744,32 @@ export class Workspace {
         let retry = false;
         try {
           const prior = JSON.parse(await fs.readFile(transferPath, "utf8"));
-          if (JSON.stringify(prior) !== JSON.stringify(transfer))
-            throw new Error("Destination already exists.");
-          retry = true;
+          let priorTargetExists = false;
+          if (
+            prior?.draftId === id &&
+            typeof prior.projectId === "string" &&
+            typeof prior.path === "string"
+          ) {
+            try {
+              const priorRoot = await this.projectRoot(prior.projectId);
+              this.assertFile(prior.path);
+              await fs.access(this.resolve(priorRoot, prior.path));
+              priorTargetExists = true;
+            } catch (error) {
+              if ((error as NodeJS.ErrnoException).code !== "ENOENT")
+                throw error;
+            }
+          }
+          if (priorTargetExists) {
+            if (JSON.stringify(prior) !== JSON.stringify(transfer))
+              throw new Error("Destination already exists.");
+            retry = true;
+          } else {
+            // The process died after recording its intent but before creating
+            // its destination. The draft lock makes it safe to abandon that
+            // incomplete attempt and save the retained draft elsewhere.
+            await fs.unlink(transferPath);
+          }
         } catch (error) {
           if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         }
@@ -873,78 +945,72 @@ export class Workspace {
   private async git(args: string[], cwd: string) {
     return (await this.gitRaw(args, cwd)).trim();
   }
-  async gitContext(id: string) {
+  private gitStatusLabel(index: string, worktree: string) {
+    const conflicted =
+      index === "U" ||
+      worktree === "U" ||
+      ["DD", "AU", "UD", "UA", "DU", "AA", "UU"].includes(index + worktree);
+    return index === "?"
+      ? "Untracked"
+      : index === "!"
+        ? "Ignored"
+        : conflicted
+          ? "Conflicted"
+          : `${index !== " " ? "Staged" : ""}${index !== " " && worktree !== " " ? "; " : ""}${worktree !== " " ? "Modified" : ""}` ||
+            "Committed";
+  }
+  async gitContext(id: string, visiblePaths: string[] = []) {
     const root = await this.projectRoot(id);
-    try {
-      const repo = await this.git(["rev-parse", "--show-toplevel"], root);
-      const branch = await this.git(
-        ["symbolic-ref", "--short", "-q", "HEAD"],
-        root,
-      ).catch(() => "detached HEAD");
-      const defaultBranch = await this.git(
-        ["symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"],
-        root,
-      )
-        .then((value) => value.replace(/^origin\//, "") || undefined)
-        .catch(() => undefined);
-      const raw = await this.gitRaw(
-        [
-          "status",
-          "--porcelain=v1",
-          "-z",
-          "--ignored",
-          "--untracked-files=all",
-          "--",
-          ".",
-        ],
-        root,
-      );
-      const prefix = path.relative(repo, root).replaceAll(path.sep, "/");
-      const statuses: Record<
-        string,
-        { index: string; worktree: string; label: string }
-      > = {};
-      const records = raw.split("\0");
-      for (let i = 0; i < records.length; i++) {
-        const item = records[i];
-        if (!item) continue;
-        const index = item[0],
-          worktree = item[1];
-        let filename = item.slice(3);
-        if (index === "R" || index === "C") i++; // porcelain -z follows a rename/copy with its source path
-        if (prefix) {
-          if (!filename.startsWith(`${prefix}/`)) continue;
-          filename = filename.slice(prefix.length + 1);
-        }
-        const conflicted =
-          index === "U" ||
-          worktree === "U" ||
-          ["DD", "AU", "UD", "UA", "DU", "AA", "UU"].includes(index + worktree);
-        const label =
-          index === "?"
-            ? "Untracked"
-            : index === "!"
-              ? "Ignored"
-              : conflicted
-                ? "Conflicted"
-                : `${index !== " " ? "Staged" : ""}${index !== " " && worktree !== " " ? "; " : ""}${worktree !== " " ? "Modified" : ""}` ||
-                  "Committed";
-        statuses[filename] = { index, worktree, label };
-      }
-      // A project can contain independent worktrees. Resolve every drawing
-      // from its own directory and replace the outer-repository attribution
-      // with the nearest repository's porcelain state.
-      for (const file of await this.listProjectFiles(id)) {
-        const absolute = this.resolve(root, file.path);
-        const nearest = await this.git(
+    const paths = [...new Set(visiblePaths)];
+    for (const relative of paths) {
+      this.assertFile(relative);
+      await this.assertNoSymlink(root, this.resolve(root, relative));
+    }
+    const repo = await this.git(["rev-parse", "--show-toplevel"], root).catch(
+      () => undefined,
+    );
+    const branch = repo
+      ? await this.git(["symbolic-ref", "--short", "-q", "HEAD"], root).catch(
+          () => "detached HEAD",
+        )
+      : undefined;
+    const defaultBranch = repo
+      ? await this.git(
+          ["symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"],
+          root,
+        )
+          .then((value) => value.replace(/^origin\//, "") || undefined)
+          .catch(() => undefined)
+      : undefined;
+    const groups = new Map<string, { repo: string; paths: string[] }>();
+    const directoryRepos = new Map<string, string | undefined>();
+    for (const relative of paths) {
+      const directory = path.dirname(this.resolve(root, relative));
+      let nearest = directoryRepos.get(directory);
+      if (nearest === undefined && !directoryRepos.has(directory)) {
+        nearest = await this.git(
           ["rev-parse", "--show-toplevel"],
-          path.dirname(absolute),
+          directory,
         ).catch(() => undefined);
-        if (!nearest || nearest === repo) continue;
-        const relative = path
-          .relative(nearest, absolute)
-          .replaceAll(path.sep, "/");
-        const nested = await this.gitRaw(
+        directoryRepos.set(directory, nearest);
+      }
+      if (!nearest) continue;
+      const group = groups.get(nearest) ?? { repo: nearest, paths: [] };
+      group.paths.push(relative);
+      groups.set(nearest, group);
+    }
+    const statuses: Record<
+      string,
+      { index: string; worktree: string; label: string }
+    > = {};
+    await Promise.all(
+      [...groups.values()].map(async (group) => {
+        const relativePaths = group.paths.map((item) =>
+          path
+            .relative(group.repo, this.resolve(root, item))
+            .replaceAll(path.sep, "/"),
+        );
+        const raw = await this.gitRaw(
           [
             "status",
             "--porcelain=v1",
@@ -952,38 +1018,35 @@ export class Workspace {
             "--ignored",
             "--untracked-files=all",
             "--",
-            relative,
+            ...relativePaths,
           ],
-          nearest,
+          group.repo,
         );
-        const item = nested.split("\0")[0];
-        if (!item) continue;
-        const index = item[0]!;
-        const worktree = item[1]!;
-        const conflicted =
-          index === "U" ||
-          worktree === "U" ||
-          ["DD", "AU", "UD", "UA", "DU", "AA", "UU"].includes(index + worktree);
-        const label =
-          index === "?"
-            ? "Untracked"
-            : index === "!"
-              ? "Ignored"
-              : conflicted
-                ? "Conflicted"
-                : `${index !== " " ? "Staged" : ""}${index !== " " && worktree !== " " ? "; " : ""}${worktree !== " " ? "Modified" : ""}` ||
-                  "Committed";
-        statuses[file.path] = { index, worktree, label };
-      }
-      return { available: true, branch, defaultBranch, statuses, repo };
-    } catch {
-      return {
-        available: false,
-        branch: undefined,
-        defaultBranch: undefined,
-        statuses: {},
-      };
-    }
+        const byRepositoryPath = new Map(
+          group.paths.map((item, index) => [relativePaths[index]!, item]),
+        );
+        for (const item of raw.split("\0")) {
+          if (!item) continue;
+          const pathInRepo = item.slice(3);
+          const projectPath = byRepositoryPath.get(pathInRepo);
+          if (!projectPath) continue;
+          const index = item[0]!,
+            worktree = item[1]!;
+          statuses[projectPath] = {
+            index,
+            worktree,
+            label: this.gitStatusLabel(index, worktree),
+          };
+        }
+      }),
+    );
+    return {
+      available: Boolean(repo) || groups.size > 0,
+      branch,
+      defaultBranch,
+      statuses,
+      repo,
+    };
   }
   async gitStatus() {
     try {

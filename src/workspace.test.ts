@@ -8,6 +8,7 @@ import {
   rm,
   stat,
   symlink,
+  utimes,
   writeFile,
 } from "node:fs/promises";
 import os from "node:os";
@@ -480,6 +481,63 @@ test("first-save retry reconciles an exact duplicate without deleting divergent 
   }
 });
 
+test("a crash-left transfer marker can be replaced by a new destination", async () => {
+  const base = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-transfer-marker-"),
+  );
+  const root = path.join(base, "project");
+  await mkdir(root);
+  try {
+    const options = isolated(base);
+    const ws = new Workspace(root, options);
+    const project = await ws.registerProject(root);
+    const draft = await ws.createDraft(doc);
+    await writeFile(
+      path.join(options.draftsPath, `${draft.id}.transfer.json`),
+      JSON.stringify({
+        draftId: draft.id,
+        projectId: project.id,
+        path: "interrupted.excalidraw",
+        draftRevision: draft.revision,
+        documentRevision: "interrupted",
+      }),
+    );
+    await ws.saveDraft(draft.id, project.id, "recovered.excalidraw", doc);
+    assert.deepEqual(await ws.listDrafts(), []);
+    assert.deepEqual(
+      (await ws.readProjectFile(project.id, "recovered.excalidraw")).document,
+      doc,
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("ownerless private locks are reclaimed after a creator crash", async () => {
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-lock-recovery-"),
+  );
+  try {
+    const options = isolated(root);
+    const ws = new Workspace(root, options);
+    const lock = path.join(
+      path.dirname(options.configPath),
+      "locks",
+      (await import("node:crypto"))
+        .createHash("sha256")
+        .update(`write:${path.join(root, "recovered.excalidraw")}`)
+        .digest("hex"),
+    );
+    await mkdir(path.dirname(lock), { recursive: true });
+    await writeFile(lock, "");
+    await utimes(lock, new Date(0), new Date(0));
+    await ws.write("recovered.excalidraw", doc);
+    assert.deepEqual(await ws.read("recovered.excalidraw"), doc);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("concurrent project renames do not replace a destination", async () => {
   const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-rename-race-"));
   const root = path.join(base, "project");
@@ -654,10 +712,16 @@ test("git context is project-relative and distinguishes file states", async () =
     ]);
     const ws = new Workspace(root, isolated(base));
     const project = await ws.registerProject(root);
-    const statuses = (await ws.gitContext(project.id)).statuses as Record<
-      string,
-      { label: string }
-    >;
+    const statuses = (
+      await ws.gitContext(project.id, [
+        "clean.excalidraw",
+        "modified.excalidraw",
+        "staged.excalidraw",
+        "both.excalidraw",
+        "untracked name.excalidraw",
+        "ignored.excalidraw",
+      ])
+    ).statuses as Record<string, { label: string }>;
     assert.equal(statuses["clean.excalidraw"], undefined);
     assert.equal(
       statuses["modified.excalidraw"].label,
@@ -668,6 +732,76 @@ test("git context is project-relative and distinguishes file states", async () =
     assert.equal(statuses["both.excalidraw"].label, "Staged; Modified");
     assert.equal(statuses["untracked name.excalidraw"].label, "Untracked");
     assert.equal(statuses["ignored.excalidraw"].label, "Ignored");
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("git context discovers a visible drawing in a nested repository without a root repository", async () => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-nested-git-"));
+  const nested = path.join(base, "nested");
+  await mkdir(nested);
+  try {
+    await git("git", ["init"], { cwd: nested });
+    await git("git", ["config", "user.email", "test@example.invalid"], {
+      cwd: nested,
+    });
+    await git("git", ["config", "user.name", "Test"], { cwd: nested });
+    await writeFile(
+      path.join(nested, "inside.excalidraw"),
+      JSON.stringify(doc),
+    );
+    await git("git", ["add", "."], { cwd: nested });
+    await git("git", ["commit", "-m", "initial"], { cwd: nested });
+    await writeFile(
+      path.join(nested, "inside.excalidraw"),
+      JSON.stringify({ ...doc, elements: [{ id: "changed" }] }),
+    );
+    await writeFile(
+      path.join(nested, "second.excalidraw"),
+      JSON.stringify(doc),
+    );
+    const ws = new Workspace(base, isolated(base));
+    const project = await ws.registerProject(base);
+    const internals = ws as unknown as {
+      gitRaw(args: string[], cwd: string): Promise<string>;
+      listProjectFiles(): Promise<never>;
+    };
+    const gitRaw = internals.gitRaw.bind(ws);
+    let statusCalls = 0;
+    internals.gitRaw = async (args, cwd) => {
+      if (args[0] === "status") statusCalls++;
+      return gitRaw(args, cwd);
+    };
+    internals.listProjectFiles = async () => {
+      throw new Error("git refresh must not recursively enumerate a project");
+    };
+    const context = await ws.gitContext(project.id, [
+      "nested/inside.excalidraw",
+      "nested/second.excalidraw",
+    ]);
+    assert.equal(context.available, true);
+    assert.equal(context.branch, undefined);
+    assert.equal(
+      context.statuses["nested/inside.excalidraw"]?.label,
+      "Modified",
+    );
+    assert.equal(statusCalls, 1);
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("default project lookup canonicalizes a symlink root", async () => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-root-link-"));
+  const real = path.join(base, "real"),
+    linked = path.join(base, "linked");
+  await mkdir(real);
+  try {
+    await symlink(real, linked, "dir");
+    const ws = new Workspace(linked, isolated(base));
+    await ws.init();
+    assert.equal(await ws.defaultProjectId(), "default");
   } finally {
     await rm(base, { recursive: true, force: true });
   }

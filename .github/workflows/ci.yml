@@ -10,6 +10,18 @@ permissions:
   contents: read
 
 jobs:
+  shortcuts:
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run test:shortcuts
   check:
     runs-on: ubuntu-latest
     steps:

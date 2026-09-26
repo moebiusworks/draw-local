@@ -1,19 +1,100 @@
 import { promises as fs } from "node:fs";
+import path from "node:path";
+
+const sourcePath = "third-party-notices-source.json";
 const lockfile = JSON.parse(await fs.readFile("package-lock.json", "utf8"));
-const packages = new Map();
-for (const [location, pkg] of Object.entries(lockfile.packages ?? {})) {
-  if (!location || !pkg.version || pkg.link) continue;
-  const marker = "node_modules/";
-  const index = location.lastIndexOf(marker);
-  if (index < 0) continue;
-  const name = location.slice(index + marker.length);
-  packages.set(`${name}@${pkg.version}`, {
-    name,
-    version: pkg.version,
-    license: typeof pkg.license === "string" ? pkg.license : "SEE PACKAGE",
-    notices: [],
+const rawEntries = Object.entries(lockfile.packages ?? {})
+  .filter(([location, pkg]) => location && pkg.version && !pkg.link)
+  .map(([location, pkg]) => {
+    const index = location.lastIndexOf("node_modules/");
+    return index < 0
+      ? undefined
+      : { location, name: location.slice(index + 13), version: pkg.version };
   });
+const identity = (pkg) => `${pkg.name}@${pkg.version}`;
+const entries = [
+  ...new Map(
+    rawEntries.filter(Boolean).map((pkg) => [identity(pkg), pkg]),
+  ).values(),
+];
+const noticeName = /^(license|notice|copying|authors|attribution)(\.|$)/i;
+const mit = `MIT License
+
+Copyright (c) <year> <copyright holders>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.`;
+
+async function sourceFromInstalledPackages() {
+  const source = {};
+  for (const pkg of entries) {
+    const manifest = JSON.parse(
+      await fs.readFile(path.join(pkg.location, "package.json"), "utf8"),
+    );
+    const names = (await fs.readdir(pkg.location, { withFileTypes: true }))
+      .filter((entry) => entry.isFile() && noticeName.test(entry.name))
+      .map((entry) => entry.name)
+      .sort();
+    const license =
+      typeof manifest.license === "string" ? manifest.license : "SEE PACKAGE";
+    source[identity(pkg)] = {
+      license,
+      repository:
+        typeof manifest.repository === "string"
+          ? manifest.repository
+          : typeof manifest.repository?.url === "string"
+            ? manifest.repository.url
+            : undefined,
+      notices: await Promise.all(
+        names.map(async (name) => ({
+          name,
+          text: (await fs.readFile(path.join(pkg.location, name), "utf8"))
+            .trim()
+            .replaceAll("\r\n", "\n")
+            .replace(/[ \t]+$/gm, ""),
+        })),
+      ).then((notices) =>
+        notices.length || license !== "MIT"
+          ? notices
+          : [{ name: "LICENSE (standard MIT text)", text: mit }],
+      ),
+    };
+  }
+  return source;
 }
+
+if (process.argv.includes("--update-source"))
+  await fs.writeFile(
+    sourcePath,
+    JSON.stringify(await sourceFromInstalledPackages(), null, 2) + "\n",
+  );
+const source = JSON.parse(await fs.readFile(sourcePath, "utf8"));
+const packages = entries.map((pkg) => {
+  const record = source[identity(pkg)];
+  if (!record)
+    throw new Error(`Missing bundled notice source for ${identity(pkg)}.`);
+  if (
+    /^(MIT|Apache-2\.0|BSD-[23]-Clause)$/.test(record.license) &&
+    !record.notices.length
+  )
+    throw new Error(`Missing required license text for ${identity(pkg)}.`);
+  return { name: pkg.name, version: pkg.version, ...record };
+});
 const noticeData = [
   {
     name: "draw-local",
@@ -21,33 +102,19 @@ const noticeData = [
     license: "Apache-2.0",
     repository: "https://github.com/moebiusworks/draw-local",
     notices: [
-      {
-        name: "LICENSE",
-        text: (await fs.readFile("LICENSE", "utf8")).trim(),
-      },
+      { name: "LICENSE", text: (await fs.readFile("LICENSE", "utf8")).trim() },
     ],
   },
-  ...[...packages.values()].sort((a, b) =>
-    (a.name + a.version).localeCompare(b.name + b.version),
-  ),
+  ...packages.sort((a, b) => identity(a).localeCompare(identity(b))),
 ];
 let out =
-  "# Generated third-party notices\n\n> Generated from package-lock.json by npm run notices.\n\n";
+  "# Generated third-party notices\n\n> Generated from package-lock.json and bundled notice sources by npm run notices.\n\n";
 for (const pkg of noticeData) {
-  out +=
-    "## " +
-    pkg.name +
-    "@" +
-    pkg.version +
-    "\n\n- License: " +
-    pkg.license +
-    "\n";
-  if (pkg.repository) out += "- Repository: " + pkg.repository + "\n";
+  out += `## ${identity(pkg)}\n\n- License: ${pkg.license}\n`;
+  if (pkg.repository) out += `- Repository: ${pkg.repository}\n`;
   out += "\n";
-  if (!pkg.notices.length)
-    out += "_No standalone license/notice file recorded in the lockfile._\n\n";
   for (const notice of pkg.notices)
-    out += "### " + notice.name + "\n\n```text\n" + notice.text + "\n```\n\n";
+    out += `### ${notice.name}\n\n\`\`\`text\n${notice.text}\n\`\`\`\n\n`;
 }
 const json = JSON.stringify(noticeData, null, 2) + "\n";
 if (process.argv.includes("--check")) {
@@ -66,4 +133,4 @@ if (process.argv.includes("--check")) {
   await fs.mkdir("public", { recursive: true });
   await fs.writeFile("public/third-party-notices.json", json);
 }
-console.error("Wrote notices for " + packages.size + " locked packages.");
+console.error("Wrote notices for " + packages.length + " locked packages.");

@@ -343,10 +343,10 @@ export function App() {
     if (!window.name)
       window.name = `drawlocal${crypto.randomUUID().replaceAll("-", "")}`;
   }, []);
-  const refreshGit = useCallback(async (id: string) => {
-    const context = await request<GitContext>(
-      `/api/project/git?projectId=${encodeURIComponent(id)}`,
-    );
+  const refreshGit = useCallback(async (id: string, paths: string[] = []) => {
+    const query = new URLSearchParams({ projectId: id });
+    for (const path of paths) query.append("path", path);
+    const context = await request<GitContext>(`/api/project/git?${query}`);
     setGitByProject((current) => ({ ...current, [id]: context }));
   }, []);
   const refresh = useCallback(async (id?: string) => {
@@ -398,6 +398,7 @@ export function App() {
       ...entries,
       [`${id}:${relative}`]: items,
     }));
+    return items;
   }, []);
   const toggleProjectEntry = async (id: string, relative = "") => {
     const identity = `${id}:${relative}`;
@@ -409,14 +410,24 @@ export function App() {
     });
     if (!projectEntries[identity]) {
       try {
-        await loadProjectEntries(id, relative);
+        const items = await loadProjectEntries(id, relative);
+        await refreshGit(
+          id,
+          items.filter((item) => item.kind === "file").map((item) => item.path),
+        );
       } catch (error) {
         setStatus(`Folder failed: ${(error as Error).message}`);
       }
     }
-    void refreshGit(id).catch((error: Error) =>
-      setStatus(`Git refresh failed: ${error.message}`),
-    );
+    if (projectEntries[identity])
+      void refreshGit(
+        id,
+        projectEntries[identity]
+          .filter((item) => item.kind === "file")
+          .map((item) => item.path),
+      ).catch((error: Error) =>
+        setStatus(`Git refresh failed: ${error.message}`),
+      );
   };
   useEffect(() => {
     localStorage.setItem(

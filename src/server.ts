@@ -264,7 +264,17 @@ app.post(
 app.get(
   "/api/project/git",
   route(async (req, res) => {
-    res.json(await workspace.gitContext(id(req)));
+    const paths = req.query.path;
+    res.json(
+      await workspace.gitContext(
+        id(req),
+        Array.isArray(paths)
+          ? paths.map(String)
+          : typeof paths === "string"
+            ? [paths]
+            : [],
+      ),
+    );
   }),
 );
 app.get(

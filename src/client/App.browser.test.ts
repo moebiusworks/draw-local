@@ -63,7 +63,7 @@ test("draft rename supports typing and Escape", async ({ page }) => {
   await draft.focus();
   await page.keyboard.press("F2");
   const name = page.getByRole("textbox", { name: "Draft name" });
-  await name.fill("A longer draft name");
+  await name.pressSequentially("A longer draft name");
   await page.keyboard.press("Escape");
   await expect(draft).toBeFocused();
   await expect(draft).toHaveText("Untitled draft");

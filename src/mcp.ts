@@ -22,11 +22,7 @@ const text = (value: unknown) => ({
 });
 const projectFor = async (projectId?: string) => {
   if (projectId) return projectId;
-  const project = (await workspace.listProjects()).find(
-    (item) => item.path === workspace.root,
-  );
-  if (!project) throw new Error("The default workspace is not registered.");
-  return project.id;
+  return workspace.defaultProjectId();
 };
 
 server.registerTool(
