@@ -364,6 +364,12 @@ export function App() {
       })
       .catch((error: Error) => setStatus(`List failed: ${error.message}`));
   }, [refresh, load]);
+  useEffect(() => {
+    const onFocus = () =>
+      projectIdRef.current && void refresh(projectIdRef.current);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [refresh]);
   const persist = useCallback(
     (target: Open) => {
       const identity = key(target),

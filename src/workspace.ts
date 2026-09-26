@@ -726,6 +726,12 @@ export class Workspace {
         ["symbolic-ref", "--short", "-q", "HEAD"],
         root,
       ).catch(() => "detached HEAD");
+      const defaultBranch = await this.git(
+        ["symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"],
+        root,
+      )
+        .then((value) => value.replace(/^origin\//, "") || undefined)
+        .catch(() => undefined);
       const raw = await this.gitRaw(
         [
           "status",
@@ -770,9 +776,14 @@ export class Workspace {
                   "Committed";
         statuses[filename] = { index, worktree, label };
       }
-      return { available: true, branch, statuses, repo };
+      return { available: true, branch, defaultBranch, statuses, repo };
     } catch {
-      return { available: false, branch: undefined, statuses: {} };
+      return {
+        available: false,
+        branch: undefined,
+        defaultBranch: undefined,
+        statuses: {},
+      };
     }
   }
   async gitStatus() {

@@ -230,6 +230,14 @@ select {
   padding: 7px 10px;
   border-bottom: 1px solid var(--border);
 }
+.git-refresh {
+  float: right;
+  min-width: auto;
+  min-height: 20px;
+  padding: 1px 4px;
+  color: var(--muted);
+  font-size: 10px;
+}
 .files {
   flex: 1;
   overflow: auto;
