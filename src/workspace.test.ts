@@ -1,27 +1,1116 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  stat,
+  symlink,
+  utimes,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { promisify } from "node:util";
 import { Workspace } from "./workspace";
 
-const doc = { type: "excalidraw", version: 2, elements: [], appState: {}, files: {} };
+const doc = {
+  type: "excalidraw",
+  version: 2,
+  elements: [],
+  appState: {},
+  files: {},
+};
+const isolated = (root: string) => ({
+  configPath: path.join(root, ".test-config", "projects.json"),
+  draftsPath: path.join(root, ".test-data", "drafts"),
+});
+const git = promisify(execFile);
 
 test("writes, lists and reads drawings", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-"));
   try {
-    const ws = new Workspace(root);
+    const ws = new Workspace(root, isolated(root));
     await ws.write("platform/overview.excalidraw", doc);
-    assert.deepEqual((await ws.list()).map((x) => x.path), ["platform/overview.excalidraw"]);
+    assert.deepEqual(
+      (await ws.list()).map((x) => x.path),
+      ["platform/overview.excalidraw"],
+    );
     assert.deepEqual(await ws.read("platform/overview.excalidraw"), doc);
-  } finally { await rm(root, { recursive: true, force: true }); }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("rejects traversal and unsupported extensions", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-"));
   try {
-    const ws = new Workspace(root);
+    const ws = new Workspace(root, isolated(root));
     await assert.rejects(() => ws.write("../escape.excalidraw", doc));
     await assert.rejects(() => ws.write("notes.txt", {}));
-  } finally { await rm(root, { recursive: true, force: true }); }
+    await assert.rejects(
+      () => ws.write("invalid.EXCALIDRAW", {}),
+      /Invalid Excalidraw document/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("does not follow links outside the workspace", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-"));
+  const outside = await mkdtemp(path.join(os.tmpdir(), "draw-local-outside-"));
+  try {
+    const ws = new Workspace(root, isolated(root));
+    await writeFile(
+      path.join(outside, "private.excalidraw"),
+      JSON.stringify(doc),
+    );
+    await symlink(outside, path.join(root, "linked"), "dir");
+    await symlink(
+      path.join(outside, "private.excalidraw"),
+      path.join(root, "linked-file.excalidraw"),
+    );
+    assert.deepEqual(await ws.list(), []);
+    await assert.rejects(
+      () => ws.read("linked/private.excalidraw"),
+      /Symbolic links/,
+    );
+    await assert.rejects(
+      () => ws.read("linked-file.excalidraw"),
+      /Symbolic links/,
+    );
+    await assert.rejects(
+      () => ws.write("linked/new.excalidraw", doc),
+      /Symbolic links/,
+    );
+    await assert.rejects(
+      () => ws.rename("linked-file.excalidraw", "renamed.excalidraw"),
+      /Symbolic links/,
+    );
+    assert.equal(
+      await readFile(path.join(outside, "private.excalidraw"), "utf8"),
+      JSON.stringify(doc),
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
+test("projects and drafts persist separately and first save is exclusive", async () => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-projects-"));
+  const first = path.join(base, "first"),
+    second = path.join(base, "second");
+  await Promise.all([mkdir(first), mkdir(second)]);
+  const options = {
+    configPath: path.join(base, "config", "projects.json"),
+    draftsPath: path.join(base, "data", "drafts"),
+  };
+  try {
+    const ws = new Workspace(first, options);
+    await ws.init();
+    const a = await ws.registerProject(first),
+      b = await ws.registerProject(second);
+    const draft = await ws.createDraft({ ...doc, elements: [{ id: "draft" }] });
+    await ws.writeDraft(
+      draft.id,
+      { ...doc, elements: [{ id: "latest" }] },
+      draft.revision,
+    );
+    await ws.saveDraft(draft.id, a.id, "overview.excalidraw", {
+      ...doc,
+      elements: [{ id: "latest" }],
+    });
+    await ws.writeProjectFile(b.id, "overview.excalidraw", {
+      ...doc,
+      elements: [{ id: "other" }],
+    });
+    assert.equal(
+      (
+        (await ws.readProjectFile(a.id, "overview.excalidraw")).document as {
+          elements: { id: string }[];
+        }
+      ).elements[0].id,
+      "latest",
+    );
+    assert.equal(
+      (
+        (await ws.readProjectFile(b.id, "overview.excalidraw")).document as {
+          elements: { id: string }[];
+        }
+      ).elements[0].id,
+      "other",
+    );
+    assert.deepEqual(await ws.listDrafts(), []);
+    await assert.rejects(
+      () => ws.createProjectFile(a.id, "overview.excalidraw", doc),
+      /already exists/,
+    );
+    const restarted = new Workspace(first, options);
+    assert.equal(
+      (await restarted.listProjects()).filter((item) => item.available)
+        .length >= 2,
+      true,
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("project lifecycle preserves identity and never alters registered directories", async () => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-lifecycle-"));
+  const first = path.join(base, "first");
+  const replacement = path.join(base, "replacement");
+  const second = path.join(base, "second");
+  try {
+    await Promise.all([mkdir(first), mkdir(replacement), mkdir(second)]);
+    await writeFile(path.join(first, "keep.excalidraw"), JSON.stringify(doc));
+    const ws = new Workspace(first, isolated(base));
+    await ws.init();
+    const [defaultProject] = await ws.listProjects();
+    const other = await ws.registerProject(second);
+    await ws.reorderProjects([other.id, defaultProject!.id]);
+    assert.deepEqual(
+      (await ws.listProjects()).map((project) => project.id),
+      [other.id, defaultProject!.id],
+    );
+    const located = await ws.locateProject(defaultProject!.id, replacement);
+    assert.equal(located.id, defaultProject!.id);
+    assert.equal(located.path, await realpath(replacement));
+    await assert.rejects(
+      () => ws.locateProject(other.id, replacement),
+      /already registered/,
+    );
+    await ws.removeProject(defaultProject!.id);
+    assert.deepEqual(
+      (await ws.listProjects()).map((project) => project.id),
+      [other.id],
+    );
+    assert.equal(
+      await readFile(path.join(first, "keep.excalidraw"), "utf8"),
+      JSON.stringify(doc),
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("draft display names are persisted without changing draft identity", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-draft-name-"));
+  try {
+    const ws = new Workspace(root, isolated(root));
+    const created = await ws.createDraft({
+      ...doc,
+      appState: { name: "  Roadmap  " },
+    });
+    assert.equal((await ws.listDrafts())[0]?.id, created.id);
+    assert.equal((await ws.listDrafts())[0]?.name, "Roadmap");
+    await ws.writeDraft(
+      created.id,
+      { ...doc, appState: { name: "Architecture" } },
+      created.revision,
+    );
+    assert.deepEqual(
+      (await ws.listDrafts()).map(({ id, name }) => ({ id, name })),
+      [{ id: created.id, name: "Architecture" }],
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("library persistence is private, atomic, and preserves library item fields", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-library-"));
+  try {
+    const ws = new Workspace(root, isolated(root));
+    const library = {
+      libraryItems: [
+        {
+          id: "item",
+          status: "published",
+          elements: [],
+          futureField: { retained: true },
+        },
+      ],
+      futureEnvelope: "retained",
+    };
+    assert.equal(await ws.readLibrary(), null);
+    await ws.writeLibrary(library);
+    assert.deepEqual(await ws.readLibrary(), library);
+    await ws.writeLibrary({ libraryItems: [] });
+    assert.deepEqual(await ws.readLibrary(), {
+      ...library,
+      libraryItems: [],
+    });
+    await assert.rejects(() => ws.writeLibrary({ libraryItems: "no" }));
+    assert.deepEqual(await ws.readLibrary(), { ...library, libraryItems: [] });
+    assert.equal((await stat(ws.libraryPath)).mode & 0o077, 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("project writes reject an external revision change", async () => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-revision-"));
+  const root = path.join(base, "project");
+  await mkdir(root);
+  try {
+    const ws = new Workspace(root, {
+      configPath: path.join(base, "config", "projects.json"),
+      draftsPath: path.join(base, "data", "drafts"),
+    });
+    const project = await ws.registerProject(root);
+    await ws.writeProjectFile(project.id, "overview.excalidraw", doc);
+    const revision = (
+      await ws.readProjectFile(project.id, "overview.excalidraw")
+    ).revision;
+    await writeFile(
+      path.join(root, "overview.excalidraw"),
+      JSON.stringify({ ...doc, elements: [{ id: "external" }] }),
+    );
+    await assert.rejects(
+      () =>
+        ws.writeProjectFile(project.id, "overview.excalidraw", doc, revision),
+      /changed outside/,
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("only one concurrent revision write succeeds and deletion conflicts", async () => {
+  const base = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-revision-race-"),
+  );
+  const root = path.join(base, "project");
+  await mkdir(root);
+  try {
+    const ws = new Workspace(root, isolated(base));
+    const project = await ws.registerProject(root);
+    await ws.writeProjectFile(project.id, "overview.excalidraw", doc);
+    const revision = (
+      await ws.readProjectFile(project.id, "overview.excalidraw")
+    ).revision;
+    const results = await Promise.allSettled([
+      ws.writeProjectFile(
+        project.id,
+        "overview.excalidraw",
+        { ...doc, elements: [{ id: "a" }] },
+        revision,
+      ),
+      ws.writeProjectFile(
+        project.id,
+        "overview.excalidraw",
+        { ...doc, elements: [{ id: "b" }] },
+        revision,
+      ),
+    ]);
+    assert.equal(
+      results.filter((result) => result.status === "fulfilled").length,
+      1,
+    );
+    await rm(path.join(root, "overview.excalidraw"));
+    await assert.rejects(
+      () =>
+        ws.writeProjectFile(project.id, "overview.excalidraw", doc, revision),
+      /changed outside/,
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("concurrent registrations across workspace instances retain each project", async () => {
+  const base = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-registry-race-"),
+  );
+  const root = path.join(base, "root"),
+    a = path.join(base, "a"),
+    b = path.join(base, "b");
+  await Promise.all([mkdir(root), mkdir(a), mkdir(b)]);
+  try {
+    const ws = new Workspace(root, isolated(base));
+    const other = new Workspace(root, isolated(base));
+    const [first, second] = await Promise.all([
+      ws.registerProject(a),
+      other.registerProject(b),
+    ]);
+    const ids = new Set((await ws.listProjects()).map((project) => project.id));
+    assert.equal(ids.has(first.id), true);
+    assert.equal(ids.has(second.id), true);
+    const duplicate = await Promise.all([
+      ws.registerProject(a),
+      ws.registerProject(a),
+    ]);
+    assert.equal(duplicate[0].id, duplicate[1].id);
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("independent workspace instances reject stale concurrent writes", async () => {
+  const base = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-process-race-"),
+  );
+  const root = path.join(base, "project");
+  await mkdir(root);
+  try {
+    const first = new Workspace(root, isolated(base));
+    const second = new Workspace(root, isolated(base));
+    const project = await first.registerProject(root);
+    const original = await first.createProjectFile(
+      project.id,
+      "race.excalidraw",
+      doc,
+    );
+    const results = await Promise.allSettled([
+      first.writeProjectFile(
+        project.id,
+        "race.excalidraw",
+        { ...doc, elements: [{ id: "a" }] },
+        original.revision,
+      ),
+      second.writeProjectFile(
+        project.id,
+        "race.excalidraw",
+        { ...doc, elements: [{ id: "b" }] },
+        original.revision,
+      ),
+    ]);
+    assert.equal(
+      results.filter((result) => result.status === "fulfilled").length,
+      1,
+    );
+    assert.equal(
+      results.filter((result) => result.status === "rejected").length,
+      1,
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("first-save retry reconciles an exact duplicate without deleting divergent data", async () => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-draft-retry-"));
+  const root = path.join(base, "project");
+  await mkdir(root);
+  try {
+    const ws = new Workspace(root, isolated(base));
+    const project = await ws.registerProject(root);
+    const exact = { ...doc, elements: [{ id: "same" }] };
+    const draft = await ws.createDraft(exact);
+    await ws.createProjectFile(project.id, "same.excalidraw", exact);
+    await assert.rejects(
+      () => ws.saveDraft(draft.id, project.id, "same.excalidraw", exact),
+      /already exists/,
+    );
+    assert.equal(
+      (await ws.listDrafts()).some((item) => item.id === draft.id),
+      true,
+    );
+    const divergent = await ws.createDraft({
+      ...doc,
+      elements: [{ id: "draft" }],
+    });
+    await ws.createProjectFile(project.id, "different.excalidraw", {
+      ...doc,
+      elements: [{ id: "target" }],
+    });
+    await assert.rejects(
+      () => ws.saveDraft(divergent.id, project.id, "different.excalidraw", doc),
+      /already exists/,
+    );
+    assert.equal(
+      (await ws.listDrafts()).some((item) => item.id === divergent.id),
+      true,
+    );
+    const stale = await ws.createDraft({
+      ...doc,
+      elements: [{ id: "old" }],
+    });
+    await ws.writeDraft(
+      stale.id,
+      { ...doc, elements: [{ id: "new" }] },
+      stale.revision,
+    );
+    await assert.rejects(
+      () =>
+        ws.saveDraft(
+          stale.id,
+          project.id,
+          "stale.excalidraw",
+          { ...doc, elements: [{ id: "old" }] },
+          stale.revision,
+        ),
+      /Draft changed/,
+    );
+    assert.equal(
+      (
+        (await ws.readDraft(stale.id)).document as {
+          elements: { id: string }[];
+        }
+      ).elements[0]?.id,
+      "new",
+    );
+    const retry = await ws.createDraft({
+      ...doc,
+      elements: [{ id: "old-recovery" }],
+    });
+    await ws.createProjectFile(project.id, "retry.excalidraw", {
+      ...doc,
+      elements: [{ id: "old-recovery" }],
+    });
+    await assert.rejects(
+      () =>
+        ws.saveDraft(retry.id, project.id, "retry.excalidraw", {
+          ...doc,
+          elements: [{ id: "new-submission" }],
+        }),
+      /already exists/,
+    );
+    assert.equal(
+      (await ws.listDrafts()).some((item) => item.id === retry.id),
+      true,
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("a crash-left transfer marker can be replaced by a new destination", async () => {
+  const base = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-transfer-marker-"),
+  );
+  const root = path.join(base, "project");
+  await mkdir(root);
+  try {
+    const options = isolated(base);
+    const ws = new Workspace(root, options);
+    const project = await ws.registerProject(root);
+    const draft = await ws.createDraft(doc);
+    await writeFile(
+      path.join(options.draftsPath, `${draft.id}.transfer.json`),
+      JSON.stringify({
+        draftId: draft.id,
+        projectId: project.id,
+        path: "interrupted.excalidraw",
+        draftRevision: draft.revision,
+        documentRevision: "interrupted",
+      }),
+    );
+    await ws.saveDraft(draft.id, project.id, "recovered.excalidraw", doc);
+    assert.deepEqual(await ws.listDrafts(), []);
+    assert.deepEqual(
+      (await ws.readProjectFile(project.id, "recovered.excalidraw")).document,
+      doc,
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("an edited draft can leave an old transfer target and save elsewhere", async () => {
+  const base = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-transfer-edit-"),
+  );
+  const root = path.join(base, "project");
+  await mkdir(root);
+  try {
+    const options = isolated(base);
+    const ws = new Workspace(root, options);
+    const project = await ws.registerProject(root);
+    const original = { ...doc, elements: [{ id: "original" }] };
+    const edited = { ...doc, elements: [{ id: "edited" }] };
+    const draft = await ws.createDraft(original);
+    await ws.createProjectFile(project.id, "old.excalidraw", original);
+    await writeFile(
+      path.join(options.draftsPath, `${draft.id}.transfer.json`),
+      JSON.stringify({
+        draftId: draft.id,
+        projectId: project.id,
+        path: "old.excalidraw",
+        draftRevision: draft.revision,
+        documentRevision: "old-transfer",
+      }),
+    );
+    const changed = await ws.writeDraft(draft.id, edited, draft.revision);
+    await assert.rejects(
+      () =>
+        ws.saveDraft(
+          draft.id,
+          project.id,
+          "old.excalidraw",
+          edited,
+          changed.revision,
+        ),
+      /already exists/,
+    );
+    await ws.saveDraft(
+      draft.id,
+      project.id,
+      "new.excalidraw",
+      edited,
+      changed.revision,
+    );
+    assert.deepEqual(
+      (await ws.readProjectFile(project.id, "old.excalidraw")).document,
+      original,
+    );
+    assert.deepEqual(
+      (await ws.readProjectFile(project.id, "new.excalidraw")).document,
+      edited,
+    );
+    assert.deepEqual(await ws.listDrafts(), []);
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("a transfer marker for a removed project does not strand a draft", async () => {
+  const base = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-transfer-removed-"),
+  );
+  const root = path.join(base, "project"),
+    oldRoot = path.join(base, "old");
+  await Promise.all([mkdir(root), mkdir(oldRoot)]);
+  try {
+    const options = isolated(base);
+    const ws = new Workspace(root, options);
+    const current = await ws.registerProject(root);
+    const old = await ws.registerProject(oldRoot);
+    const draft = await ws.createDraft(doc);
+    await ws.createProjectFile(old.id, "old.excalidraw", doc);
+    await writeFile(
+      path.join(options.draftsPath, `${draft.id}.transfer.json`),
+      JSON.stringify({
+        draftId: draft.id,
+        projectId: old.id,
+        path: "old.excalidraw",
+      }),
+    );
+    await ws.removeProject(old.id);
+    await ws.saveDraft(draft.id, current.id, "new.excalidraw", doc);
+    assert.deepEqual(
+      (await ws.readProjectFile(current.id, "new.excalidraw")).document,
+      doc,
+    );
+    assert.deepEqual(
+      JSON.parse(await readFile(path.join(oldRoot, "old.excalidraw"), "utf8")),
+      doc,
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("a crash after draft removal leaves the saved project copy intact", async () => {
+  const base = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-transfer-complete-"),
+  );
+  const root = path.join(base, "project");
+  await mkdir(root);
+  try {
+    const options = isolated(base);
+    const ws = new Workspace(root, options);
+    const project = await ws.registerProject(root);
+    const draft = await ws.createDraft(doc);
+    await ws.createProjectFile(project.id, "saved.excalidraw", doc);
+    await writeFile(
+      path.join(options.draftsPath, `${draft.id}.transfer.json`),
+      JSON.stringify({
+        draftId: draft.id,
+        projectId: project.id,
+        path: "saved.excalidraw",
+      }),
+    );
+    await rm(path.join(options.draftsPath, `${draft.id}.excalidraw`));
+    assert.deepEqual(await ws.listDrafts(), []);
+    assert.deepEqual(
+      (await ws.readProjectFile(project.id, "saved.excalidraw")).document,
+      doc,
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("ownerless private locks are reclaimed after a creator crash", async () => {
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-lock-recovery-"),
+  );
+  try {
+    const options = isolated(root);
+    const ws = new Workspace(root, options);
+    const lock = path.join(
+      path.dirname(options.configPath),
+      "locks",
+      (await import("node:crypto"))
+        .createHash("sha256")
+        .update(`write:${path.join(root, "recovered.excalidraw")}`)
+        .digest("hex"),
+    );
+    await mkdir(path.dirname(lock), { recursive: true });
+    await writeFile(lock, "");
+    await utimes(lock, new Date(0), new Date(0));
+    await ws.write("recovered.excalidraw", doc);
+    assert.deepEqual(await ws.read("recovered.excalidraw"), doc);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("legacy directory locks recover once without overlapping writers", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-legacy-lock-"));
+  try {
+    const options = isolated(root);
+    const first = new Workspace(root, options),
+      second = new Workspace(root, options);
+    const target = path.join(root, "shared.excalidraw");
+    const legacy = path.join(
+      path.dirname(options.configPath),
+      "locks",
+      createHash("sha256").update(`write:${target}`).digest("hex"),
+    );
+    await mkdir(legacy, { recursive: true });
+    await writeFile(
+      path.join(legacy, "owner.json"),
+      JSON.stringify({ pid: 99999999, host: os.hostname() }),
+    );
+    const results = await Promise.allSettled([
+      first.createProjectFile("default", "shared.excalidraw", doc),
+      second.createProjectFile("default", "shared.excalidraw", doc),
+    ]);
+    assert.equal(
+      results.filter((item) => item.status === "fulfilled").length,
+      1,
+    );
+    assert.equal(
+      results.filter((item) => item.status === "rejected").length,
+      1,
+    );
+    await assert.rejects(() => stat(legacy), { code: "ENOENT" });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("two processes reclaim one legacy lock and enter separately", async () => {
+  const root = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-process-lock-"),
+  );
+  try {
+    const options = isolated(root);
+    const identity = "test:cross-process";
+    const legacy = path.join(
+      path.dirname(options.configPath),
+      "locks",
+      createHash("sha256").update(identity).digest("hex"),
+    );
+    const events = path.join(root, "events.txt");
+    await mkdir(legacy, { recursive: true });
+    await writeFile(
+      path.join(legacy, "owner.json"),
+      JSON.stringify({ pid: 99999999, host: os.hostname() }),
+    );
+    const source = `
+      import {appendFile} from "node:fs/promises";
+      import {Workspace} from "./src/workspace.ts";
+      const ws = new Workspace(process.env.LOCK_TEST_ROOT, {
+        configPath: process.env.LOCK_TEST_CONFIG,
+        draftsPath: process.env.LOCK_TEST_DRAFTS,
+      });
+      await ws.withProcessLock("test:cross-process", async () => {
+        await appendFile(process.env.LOCK_TEST_EVENTS, "start\\n");
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await appendFile(process.env.LOCK_TEST_EVENTS, "end\\n");
+      });
+    `;
+    const env = {
+      ...process.env,
+      LOCK_TEST_ROOT: root,
+      LOCK_TEST_CONFIG: options.configPath,
+      LOCK_TEST_DRAFTS: options.draftsPath,
+      LOCK_TEST_EVENTS: events,
+    };
+    await Promise.all([
+      git(
+        process.execPath,
+        ["--import", "tsx", "--input-type=module", "-e", source],
+        { env },
+      ),
+      git(
+        process.execPath,
+        ["--import", "tsx", "--input-type=module", "-e", source],
+        { env },
+      ),
+    ]);
+    assert.deepEqual((await readFile(events, "utf8")).trim().split("\n"), [
+      "start",
+      "end",
+      "start",
+      "end",
+    ]);
+    await assert.rejects(() => stat(legacy), { code: "ENOENT" });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a live legacy owner remains exclusive until it releases", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-live-lock-"));
+  try {
+    const options = isolated(root);
+    const ws = new Workspace(root, options);
+    const legacy = path.join(
+      path.dirname(options.configPath),
+      "locks",
+      createHash("sha256")
+        .update(`write:${path.join(root, "live.excalidraw")}`)
+        .digest("hex"),
+    );
+    await mkdir(path.dirname(legacy), { recursive: true });
+    await writeFile(
+      legacy,
+      JSON.stringify({ pid: process.pid, host: os.hostname() }),
+    );
+    let settled = false;
+    const pending = ws.write("live.excalidraw", doc).finally(() => {
+      settled = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    assert.equal(settled, false);
+    await rm(legacy);
+    await pending;
+    assert.deepEqual(await ws.read("live.excalidraw"), doc);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test(
+  "a reused legacy PID is distinguished by process start time on Linux",
+  { skip: process.platform !== "linux" },
+  async () => {
+    const root = await mkdtemp(
+      path.join(os.tmpdir(), "draw-local-reused-pid-"),
+    );
+    try {
+      const options = isolated(root);
+      const ws = new Workspace(root, options);
+      const legacy = path.join(
+        path.dirname(options.configPath),
+        "locks",
+        createHash("sha256")
+          .update(`write:${path.join(root, "reused.excalidraw")}`)
+          .digest("hex"),
+      );
+      await mkdir(path.dirname(legacy), { recursive: true });
+      await writeFile(
+        legacy,
+        JSON.stringify({
+          pid: process.pid,
+          host: os.hostname(),
+          startedAt: "a previous process",
+        }),
+      );
+      await ws.write("reused.excalidraw", doc);
+      assert.deepEqual(await ws.read("reused.excalidraw"), doc);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test("concurrent project renames do not replace a destination", async () => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-rename-race-"));
+  const root = path.join(base, "project");
+  await mkdir(root);
+  try {
+    const ws = new Workspace(root, isolated(base));
+    const project = await ws.registerProject(root);
+    const first = await ws.createProjectFile(project.id, "first.excalidraw", {
+      ...doc,
+      elements: [{ id: "first" }],
+    });
+    const second = await ws.createProjectFile(project.id, "second.excalidraw", {
+      ...doc,
+      elements: [{ id: "second" }],
+    });
+    const result = await Promise.allSettled([
+      ws.renameProjectFile(
+        project.id,
+        "first.excalidraw",
+        "target.excalidraw",
+        first.revision,
+      ),
+      ws.renameProjectFile(
+        project.id,
+        "second.excalidraw",
+        "target.excalidraw",
+        second.revision,
+      ),
+    ]);
+    assert.equal(
+      result.filter((item) => item.status === "fulfilled").length,
+      1,
+    );
+    assert.equal(result.filter((item) => item.status === "rejected").length, 1);
+    assert.equal((await ws.listProjectFiles(project.id)).length, 2);
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("folder browsing omits hidden directories", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-browse-"));
+  try {
+    await Promise.all([
+      mkdir(path.join(root, "visible")),
+      mkdir(path.join(root, ".hidden")),
+    ]);
+    const ws = new Workspace(root, {
+      configPath: path.join(root, "config", "projects.json"),
+      draftsPath: path.join(root, "data", "drafts"),
+    });
+    const listing = await ws.browseDirectory(root);
+    assert.deepEqual(listing.entries, ["visible"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("project tree entries are lazy, scoped, and do not follow links", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-tree-"));
+  const outside = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-tree-outside-"),
+  );
+  try {
+    await mkdir(path.join(root, "nested"));
+    await mkdir(path.join(root, ".hidden"));
+    await writeFile(path.join(root, "drawing.excalidraw"), JSON.stringify(doc));
+    await writeFile(
+      path.join(root, "nested", "inside.excalidraw"),
+      JSON.stringify(doc),
+    );
+    await symlink(outside, path.join(root, "outside"), "dir");
+    const ws = new Workspace(root, isolated(root));
+    await ws.init();
+    const [project] = await ws.listProjects();
+    assert.deepEqual(
+      (await ws.listProjectEntries(project!.id)).map(({ name, kind }) => ({
+        name,
+        kind,
+      })),
+      [
+        { name: "drawing.excalidraw", kind: "file" },
+        { name: "nested", kind: "directory" },
+      ],
+    );
+    assert.deepEqual(
+      (await ws.listProjectEntries(project!.id, "nested")).map(
+        (item) => item.path,
+      ),
+      ["nested/inside.excalidraw"],
+    );
+    await assert.rejects(() =>
+      ws.listProjectEntries(project!.id, "../outside"),
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
+test("sensitive macOS and Windows locations are excluded from the folder picker", async () => {
+  const ws = new Workspace("/tmp", {
+    configPath: "/tmp/draw-local-test-config.json",
+    draftsPath: "/tmp/draw-local-test-drafts",
+  });
+  const sensitive = ws as unknown as {
+    isSensitiveBrowsePath(directory: string): boolean;
+  };
+  assert.equal(sensitive.isSensitiveBrowsePath("/System/Library"), true);
+  assert.equal(
+    sensitive.isSensitiveBrowsePath("/Library/Application Support"),
+    true,
+  );
+  assert.equal(
+    sensitive.isSensitiveBrowsePath("/mnt/c/Windows/System32"),
+    true,
+  );
+  assert.equal(sensitive.isSensitiveBrowsePath("/mnt/c/Program Files"), true);
+  assert.equal(
+    sensitive.isSensitiveBrowsePath("/mnt/c/Users/alice/AppData/Roaming"),
+    true,
+  );
+  assert.equal(
+    sensitive.isSensitiveBrowsePath("/mnt/c/Users/alice/Documents"),
+    false,
+  );
+});
+
+test("git context is project-relative and distinguishes file states", async () => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-git-"));
+  const root = path.join(base, "nested");
+  await mkdir(root);
+  try {
+    await git("git", ["init"], { cwd: base });
+    await git("git", ["config", "user.email", "test@example.invalid"], {
+      cwd: base,
+    });
+    await git("git", ["config", "user.name", "Test"], { cwd: base });
+    await Promise.all([
+      writeFile(path.join(root, "clean.excalidraw"), JSON.stringify(doc)),
+      writeFile(path.join(root, "modified.excalidraw"), JSON.stringify(doc)),
+      writeFile(path.join(root, "staged.excalidraw"), JSON.stringify(doc)),
+      writeFile(path.join(root, "both.excalidraw"), JSON.stringify(doc)),
+      writeFile(path.join(base, ".gitignore"), "nested/ignored.excalidraw\n"),
+    ]);
+    await git("git", ["add", "."], { cwd: base });
+    await git("git", ["commit", "-m", "initial"], { cwd: base });
+    await writeFile(
+      path.join(root, "modified.excalidraw"),
+      JSON.stringify({ ...doc, elements: [{ id: "modified" }] }),
+    );
+    await writeFile(
+      path.join(root, "staged.excalidraw"),
+      JSON.stringify({ ...doc, elements: [{ id: "staged" }] }),
+    );
+    await git("git", ["add", "nested/staged.excalidraw"], { cwd: base });
+    await writeFile(
+      path.join(root, "both.excalidraw"),
+      JSON.stringify({ ...doc, elements: [{ id: "staged" }] }),
+    );
+    await git("git", ["add", "nested/both.excalidraw"], { cwd: base });
+    await writeFile(
+      path.join(root, "both.excalidraw"),
+      JSON.stringify({ ...doc, elements: [{ id: "modified" }] }),
+    );
+    await Promise.all([
+      writeFile(
+        path.join(root, "untracked name.excalidraw"),
+        JSON.stringify(doc),
+      ),
+      writeFile(path.join(root, "ignored.excalidraw"), JSON.stringify(doc)),
+    ]);
+    const ws = new Workspace(root, isolated(base));
+    const project = await ws.registerProject(root);
+    const statuses = (
+      await ws.gitContext(project.id, [
+        "clean.excalidraw",
+        "modified.excalidraw",
+        "staged.excalidraw",
+        "both.excalidraw",
+        "untracked name.excalidraw",
+        "ignored.excalidraw",
+      ])
+    ).statuses as Record<string, { label: string }>;
+    assert.equal(statuses["clean.excalidraw"], undefined);
+    assert.equal(
+      statuses["modified.excalidraw"].label,
+      "Modified",
+      JSON.stringify(statuses),
+    );
+    assert.equal(statuses["staged.excalidraw"].label, "Staged");
+    assert.equal(statuses["both.excalidraw"].label, "Staged; Modified");
+    assert.equal(statuses["untracked name.excalidraw"].label, "Untracked");
+    assert.equal(statuses["ignored.excalidraw"].label, "Ignored");
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("git context discovers a visible drawing in a nested repository without a root repository", async () => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-nested-git-"));
+  const nested = path.join(base, "nested");
+  await mkdir(nested);
+  try {
+    await git("git", ["init"], { cwd: nested });
+    await git("git", ["config", "user.email", "test@example.invalid"], {
+      cwd: nested,
+    });
+    await git("git", ["config", "user.name", "Test"], { cwd: nested });
+    await writeFile(
+      path.join(nested, "inside.excalidraw"),
+      JSON.stringify(doc),
+    );
+    await git("git", ["add", "."], { cwd: nested });
+    await git("git", ["commit", "-m", "initial"], { cwd: nested });
+    await writeFile(
+      path.join(nested, "inside.excalidraw"),
+      JSON.stringify({ ...doc, elements: [{ id: "changed" }] }),
+    );
+    await writeFile(
+      path.join(nested, "second.excalidraw"),
+      JSON.stringify(doc),
+    );
+    await writeFile(path.join(base, "sibling.excalidraw"), JSON.stringify(doc));
+    const ws = new Workspace(base, isolated(base));
+    const project = await ws.registerProject(base);
+    const internals = ws as unknown as {
+      gitRaw(args: string[], cwd: string): Promise<string>;
+      listProjectFiles(): Promise<never>;
+    };
+    const gitRaw = internals.gitRaw.bind(ws);
+    let statusCalls = 0;
+    internals.gitRaw = async (args, cwd) => {
+      if (args[0] === "status") statusCalls++;
+      return gitRaw(args, cwd);
+    };
+    internals.listProjectFiles = async () => {
+      throw new Error("git refresh must not recursively enumerate a project");
+    };
+    const context = await ws.gitContext(project.id, [
+      "nested/inside.excalidraw",
+      "nested/second.excalidraw",
+      "sibling.excalidraw",
+    ]);
+    assert.equal(context.available, false);
+    assert.equal(context.branch, undefined);
+    assert.deepEqual(context.repositoryPaths.sort(), [
+      "nested/inside.excalidraw",
+      "nested/second.excalidraw",
+    ]);
+    assert.equal(context.statuses["sibling.excalidraw"], undefined);
+    assert.equal(
+      context.statuses["nested/inside.excalidraw"]?.label,
+      "Modified",
+    );
+    assert.equal(statusCalls, 1);
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("default project lookup canonicalizes a symlink root", async () => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-root-link-"));
+  const real = path.join(base, "real"),
+    linked = path.join(base, "linked");
+  await mkdir(real);
+  try {
+    await symlink(real, linked, "dir");
+    const ws = new Workspace(linked, isolated(base));
+    await ws.init();
+    assert.equal(await ws.defaultProjectId(), "default");
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("typed directory resolution canonicalizes an explicit path", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "draw-local-resolve-"));
+  try {
+    const ws = new Workspace(root, isolated(root));
+    assert.deepEqual(await ws.resolveDirectory(root), {
+      path: await realpath(root),
+    });
+    await assert.rejects(() => ws.resolveDirectory(path.join(root, "missing")));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

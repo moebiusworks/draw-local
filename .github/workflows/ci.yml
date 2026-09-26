@@ -3,12 +3,26 @@ name: CI
 on:
   push:
     branches: [main]
-  pull_request:
+    tags: ["*"]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  shortcuts:
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npx playwright install chromium
+      - run: npm run test:browser:shortcuts
   check:
     runs-on: ubuntu-latest
     steps:
@@ -17,6 +31,7 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+      - run: npx playwright install --with-deps chromium
       - run: npm run check
       - run: npm run notices
       - uses: actions/upload-artifact@v4
