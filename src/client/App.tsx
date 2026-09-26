@@ -184,6 +184,7 @@ export function App() {
     [directory, setDirectory] = useState<Directory>(),
     [pickerNodes, setPickerNodes] = useState<Record<string, Directory>>({}),
     [pickerRoots, setPickerRoots] = useState<string[]>([]),
+    [pickerSearch, setPickerSearch] = useState(""),
     [expandedPickerNodes, setExpandedPickerNodes] = useState<Set<string>>(
       new Set(),
     ),
@@ -947,6 +948,16 @@ export function App() {
   const renderPickerNode = (path: string, name: string, level = 1) => {
     const node = pickerNodes[path];
     const expanded = expandedPickerNodes.has(path);
+    const query = pickerSearch.trim().toLocaleLowerCase();
+    const visibleChildren = node?.entries.filter((entry) =>
+      entry.toLocaleLowerCase().includes(query),
+    );
+    if (
+      query &&
+      !name.toLocaleLowerCase().includes(query) &&
+      !visibleChildren?.length
+    )
+      return null;
     return (
       <div
         key={path}
@@ -976,7 +987,7 @@ export function App() {
         </button>
         {expanded && (
           <div role="group">
-            {node?.entries.map((entry) =>
+            {visibleChildren?.map((entry) =>
               renderPickerNode(`${path}/${entry}`, entry, level + 1),
             )}
           </div>
@@ -1320,6 +1331,14 @@ export function App() {
               <p className="selected-path" title={directory?.path}>
                 {directory?.path}
               </p>
+              <label>
+                Filter discovered folders
+                <input
+                  value={pickerSearch}
+                  onChange={(event) => setPickerSearch(event.target.value)}
+                  placeholder="Folder name"
+                />
+              </label>
               <div className="folder-actions">
                 <button
                   disabled={!directory?.parent}
@@ -1343,6 +1362,14 @@ export function App() {
                   ),
                 )}
               </div>
+              {pickerSearch &&
+                !Object.values(pickerNodes).some((node) =>
+                  node.entries.some((entry) =>
+                    entry
+                      .toLocaleLowerCase()
+                      .includes(pickerSearch.trim().toLocaleLowerCase()),
+                  ),
+                ) && <p>Only discovered folders are searched.</p>}
               <button disabled={!directory} onClick={() => void addDirectory()}>
                 Use this folder
               </button>
