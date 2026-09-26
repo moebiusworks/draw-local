@@ -188,7 +188,9 @@ export function App() {
     [projectEntries, setProjectEntries] = useState<
       Record<string, ProjectEntry[]>
     >({}),
-    [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set()),
+    [expandedEntries, setExpandedEntries] = useState<Set<string>>(() =>
+      storedPathSet("draw-local.project-expanded"),
+    ),
     [drafts, setDrafts] = useState<Draft[]>([]),
     [open, setOpen] = useState<Open>(),
     [document, setDocument] = useState<unknown>(),
@@ -317,6 +319,22 @@ export function App() {
       }
     }
   };
+  useEffect(() => {
+    localStorage.setItem(
+      "draw-local.project-expanded",
+      JSON.stringify([...expandedEntries]),
+    );
+  }, [expandedEntries]);
+  useEffect(() => {
+    for (const identity of expandedEntries) {
+      if (projectEntries[identity]) continue;
+      const [id, relative = ""] = identity.split(":", 2);
+      if (projects.some((project) => project.id === id && project.available))
+        void loadProjectEntries(id!, relative).catch((error: Error) =>
+          setStatus(`Folder failed: ${error.message}`),
+        );
+    }
+  }, [expandedEntries, loadProjectEntries, projectEntries, projects]);
   const load = useCallback(async (next: Open) => {
     const identity = key(next);
     if (documentStates.current.get(identity) === "conflict") {
