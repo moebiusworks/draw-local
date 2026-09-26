@@ -149,6 +149,20 @@ function IconButton({
     </button>
   );
 }
+
+function storedPathSet(key: string) {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(key) ?? "[]");
+    return new Set(
+      Array.isArray(value)
+        ? value.filter((item): item is string => typeof item === "string")
+        : [],
+    );
+  } catch {
+    return new Set<string>();
+  }
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -185,8 +199,8 @@ export function App() {
     [pickerNodes, setPickerNodes] = useState<Record<string, Directory>>({}),
     [pickerRoots, setPickerRoots] = useState<string[]>([]),
     [pickerSearch, setPickerSearch] = useState(""),
-    [expandedPickerNodes, setExpandedPickerNodes] = useState<Set<string>>(
-      new Set(),
+    [expandedPickerNodes, setExpandedPickerNodes] = useState<Set<string>>(() =>
+      storedPathSet("draw-local.picker-expanded"),
     ),
     [destinationProject, setDestinationProject] = useState(""),
     [destinationPath, setDestinationPath] = useState("untitled.excalidraw"),
@@ -481,12 +495,20 @@ export function App() {
     try {
       const home = await request<Directory>("/api/directories");
       const roots = [
-        ...new Set([home.path, ...projects.map((project) => project.path)]),
+        ...new Set([
+          home.path,
+          ...projects
+            .filter((project) => project.available)
+            .map((project) => project.path),
+        ]),
       ];
       setPickerRoots(roots);
       setPickerNodes({ [home.path]: home });
       setDirectory(home);
-      setExpandedPickerNodes(new Set([home.path]));
+      setExpandedPickerNodes((current) => new Set([home.path, ...current]));
+      const savedLocation = localStorage.getItem("draw-local.picker-location");
+      if (savedLocation && savedLocation !== home.path)
+        await browse(savedLocation);
     } catch (error) {
       setStatus(`Directory failed: ${(error as Error).message}`);
     }
@@ -687,6 +709,16 @@ export function App() {
       ),
     [panelWidth],
   );
+  useEffect(() => {
+    if (directory?.path)
+      localStorage.setItem("draw-local.picker-location", directory.path);
+  }, [directory?.path]);
+  useEffect(() => {
+    localStorage.setItem(
+      "draw-local.picker-expanded",
+      JSON.stringify([...expandedPickerNodes]),
+    );
+  }, [expandedPickerNodes]);
   useEffect(() => {
     if (!licenses || notices.length) return;
     void request<Notice[]>("/third-party-notices.json")
@@ -988,11 +1020,25 @@ export function App() {
             }
             if (event.key === "ArrowRight") {
               event.preventDefault();
-              void togglePickerNode(path);
+              if (!expanded) void togglePickerNode(path);
+              else
+                event.currentTarget
+                  .closest('[role="treeitem"]')
+                  ?.querySelector<HTMLButtonElement>(
+                    '[role="group"] > [role="treeitem"] .tree-button',
+                  )
+                  ?.focus();
             }
             if (event.key === "ArrowLeft" && expanded) {
               event.preventDefault();
               void togglePickerNode(path);
+            } else if (event.key === "ArrowLeft") {
+              event.preventDefault();
+              event.currentTarget
+                .closest('[role="treeitem"]')
+                ?.parentElement?.closest('[role="treeitem"]')
+                ?.querySelector<HTMLButtonElement>(".tree-button")
+                ?.focus();
             }
           }}
         >
