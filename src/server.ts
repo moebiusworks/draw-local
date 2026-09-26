@@ -240,6 +240,7 @@ app.post(
           String(req.body.projectId ?? ""),
           String(req.body.path ?? ""),
           req.body.document,
+          typeof req.body.revision === "string" ? req.body.revision : undefined,
         ),
       );
   }),

@@ -106,6 +106,14 @@ export class Workspace {
       if (this.locks.get(identity) === queued) this.locks.delete(identity);
     }
   }
+  private async withLocks<T>(identities: string[], action: () => Promise<T>) {
+    const unique = [...new Set(identities)].sort();
+    const acquire = async (index: number): Promise<T> =>
+      index === unique.length
+        ? action()
+        : this.withLock(unique[index]!, () => acquire(index + 1));
+    return acquire(0);
+  }
   private async registry(): Promise<StoredProject[]> {
     await this.init();
     const value = JSON.parse(await fs.readFile(this.configPath, "utf8")) as {
@@ -598,23 +606,43 @@ export class Workspace {
     projectId: string,
     relative: string,
     value: unknown,
+    expectedRevision?: string,
   ) {
-    const draft = await this.readDraft(id);
-    try {
-      const target = await this.createProjectFile(projectId, relative, value);
-      await fs.unlink(this.resolve(this.draftsPath, `${id}.excalidraw`));
-      return target;
-    } catch (error) {
-      if ((error as Error).message !== "Destination already exists.")
-        throw error;
-      // A crash can leave the just-created target alongside its draft. Only reconcile
-      // byte-equivalent JSON data; divergent files remain separate recovery choices.
-      const target = await this.readProjectFile(projectId, relative);
-      if (JSON.stringify(target.document) !== JSON.stringify(draft.document))
-        throw error;
-      await fs.unlink(this.resolve(this.draftsPath, `${id}.excalidraw`));
-      return this.info(await this.projectRoot(projectId), relative);
-    }
+    const draftPath = this.resolve(this.draftsPath, `${id}.excalidraw`);
+    return this.withLock(`write:${draftPath}`, async () => {
+      this.valid(value, "draft.excalidraw");
+      const source = await fs.readFile(draftPath, "utf8");
+      const revision = this.revision(source);
+      if (expectedRevision !== undefined && expectedRevision !== revision)
+        throw new Error(
+          "Draft changed outside this Save. Your local copy is still recoverable.",
+        );
+      try {
+        const target = await this.createProjectFile(projectId, relative, value);
+        const latest = await fs.readFile(draftPath, "utf8");
+        if (this.revision(latest) !== revision)
+          throw new Error(
+            "Draft changed during Save. The project copy was retained and the draft remains recoverable.",
+          );
+        await fs.unlink(draftPath);
+        return target;
+      } catch (error) {
+        if ((error as Error).message !== "Destination already exists.")
+          throw error;
+        // A crash can leave the just-created target alongside its draft. Reconcile
+        // only the caller's submitted document, never an older draft snapshot.
+        const target = await this.readProjectFile(projectId, relative);
+        if (JSON.stringify(target.document) !== JSON.stringify(value))
+          throw error;
+        const latest = await fs.readFile(draftPath, "utf8");
+        if (this.revision(latest) !== revision)
+          throw new Error(
+            "Draft changed during Save. The project copy was retained and the draft remains recoverable.",
+          );
+        await fs.unlink(draftPath);
+        return this.info(await this.projectRoot(projectId), relative);
+      }
+    });
   }
   async copyProjectFile(
     fromId: string,
@@ -658,7 +686,7 @@ export class Workspace {
     this.assertFile(to);
     const source = this.resolve(root, from),
       target = this.resolve(root, to);
-    return this.withLock(`rename:${source}`, async () => {
+    return this.withLocks([`write:${source}`, `write:${target}`], async () => {
       await this.assertNoSymlink(root, source);
       await this.assertNoSymlink(root, target);
       const contents = await fs.readFile(source, "utf8");
@@ -676,7 +704,16 @@ export class Workspace {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       }
       await fs.mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
-      await fs.rename(source, target);
+      // link() is an atomic no-replace operation on the single project filesystem.
+      // Unlike rename(), it cannot silently overwrite a racing destination.
+      try {
+        await fs.link(source, target);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "EEXIST")
+          throw new Error("Destination already exists.");
+        throw error;
+      }
+      await fs.unlink(source);
       return this.info(root, to);
     });
   }

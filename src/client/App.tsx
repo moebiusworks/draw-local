@@ -37,6 +37,8 @@ type Notice = {
   repository?: string;
   notices: { name: string; text: string }[];
 };
+const noticeId = (notice: Pick<Notice, "name" | "version">) =>
+  `${notice.name}@${notice.version}`;
 const emptyDoc = {
   type: "excalidraw",
   version: 2,
@@ -207,6 +209,8 @@ export function App() {
     [destination, setDestination] = useState(false),
     [picker, setPicker] = useState(false),
     [directory, setDirectory] = useState<Directory>(),
+    [resolvedDirectoryPath, setResolvedDirectoryPath] = useState<string>(),
+    [resolvingDirectory, setResolvingDirectory] = useState(false),
     [pickerNodes, setPickerNodes] = useState<Record<string, Directory>>({}),
     [pickerRoots, setPickerRoots] = useState<string[]>([]),
     [pickerSearch, setPickerSearch] = useState(""),
@@ -231,7 +235,7 @@ export function App() {
     [licenses, setLicenses] = useState(false),
     [notices, setNotices] = useState<Notice[]>([]),
     [noticeSearch, setNoticeSearch] = useState(""),
-    [selectedNotice, setSelectedNotice] = useState<string>("draw-local");
+    [selectedNotice, setSelectedNotice] = useState<string>("draw-local@0.1.0");
   const [excalidrawAPI, setExcalidrawAPI] =
     useState<ExcalidrawImperativeAPI | null>(null);
   const [renamingDraft, setRenamingDraft] = useState<string>(),
@@ -497,7 +501,15 @@ export function App() {
         clearTimeout(timer);
         timers.current.delete(identity);
         await persist(target);
-      } else await writes.current.get(identity);
+      } else {
+        try {
+          await writes.current.get(identity);
+        } catch (error) {
+          // Conflict recovery creates a draft and deliberately leaves the current
+          // document available for Save As instead of rethrowing a stale write.
+          if (documentStates.current.get(identity) !== "conflict") throw error;
+        }
+      }
     },
     [persist],
   );
@@ -517,6 +529,7 @@ export function App() {
         `/api/directories${target ? `?path=${encodeURIComponent(target)}` : ""}`,
       );
       setDirectory(next);
+      setResolvedDirectoryPath(next.path);
       setPickerNodes((nodes) => ({ ...nodes, [next.path]: next }));
     } catch (error) {
       setStatus(`Directory failed: ${(error as Error).message}`);
@@ -524,6 +537,7 @@ export function App() {
   };
   const resolveTypedDirectory = async () => {
     if (!directory?.path) return;
+    setResolvingDirectory(true);
     try {
       const resolved = await request<{ path: string }>(
         `/api/directories/resolve?path=${encodeURIComponent(directory.path)}`,
@@ -532,6 +546,8 @@ export function App() {
       await browse(resolved.path);
     } catch (error) {
       setStatus(`Directory failed: ${(error as Error).message}`);
+    } finally {
+      setResolvingDirectory(false);
     }
   };
   const openPicker = async () => {
@@ -549,6 +565,7 @@ export function App() {
       setPickerRoots(roots);
       setPickerNodes({ [home.path]: home });
       setDirectory(home);
+      setResolvedDirectoryPath(home.path);
       setExpandedPickerNodes((current) => new Set([home.path, ...current]));
       const savedLocation = localStorage.getItem("draw-local.picker-location");
       if (savedLocation && savedLocation !== home.path)
@@ -607,6 +624,7 @@ export function App() {
                 projectId: destinationProject,
                 path: destinationPath,
                 document: content,
+                revision: revisions.current.get(key(open)),
               }),
             })
           : await request<FileInfo>("/api/project/copy", {
@@ -627,6 +645,7 @@ export function App() {
         `project:${destinationProject}:${destinationPath}`,
         result.revision,
       );
+      projectIdRef.current = destinationProject;
       setProjectId(destinationProject);
       await refresh(destinationProject);
       await load({
@@ -786,6 +805,59 @@ export function App() {
         `${window.location.origin}${window.location.pathname}?${open.kind === "draft" ? `draft=${open.id}` : `project=${open.projectId}&file=${encodeURIComponent(open.path)}`}`,
       )
     : undefined;
+  const onProjectTreeKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+  ) => {
+    const buttons = [
+      ...(event.currentTarget
+        .closest('[role="tree"]')
+        ?.querySelectorAll<HTMLButtonElement>(".tree-button, .file") ?? []),
+    ];
+    const index = buttons.indexOf(event.currentTarget);
+    if (event.key === "ArrowDown" && buttons[index + 1]) {
+      event.preventDefault();
+      buttons[index + 1]!.focus();
+      return;
+    }
+    if (event.key === "ArrowUp" && buttons[index - 1]) {
+      event.preventDefault();
+      buttons[index - 1]!.focus();
+      return;
+    }
+    const project = event.currentTarget.dataset.projectId;
+    const relative = event.currentTarget.dataset.projectPath;
+    const treeItem = event.currentTarget.closest('[role="treeitem"]');
+    const expanded = treeItem?.getAttribute("aria-expanded") === "true";
+    if (
+      event.key === "ArrowRight" &&
+      project !== undefined &&
+      relative !== undefined
+    ) {
+      event.preventDefault();
+      if (!expanded) void toggleProjectEntry(project, relative);
+      else
+        treeItem
+          ?.querySelector<HTMLButtonElement>(
+            '[role="group"] > [role="treeitem"] .tree-button',
+          )
+          ?.focus();
+    }
+    if (
+      event.key === "ArrowLeft" &&
+      expanded &&
+      project !== undefined &&
+      relative !== undefined
+    ) {
+      event.preventDefault();
+      void toggleProjectEntry(project, relative);
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      treeItem?.parentElement
+        ?.closest('[role="treeitem"]')
+        ?.querySelector<HTMLButtonElement>(".tree-button")
+        ?.focus();
+    }
+  };
   const renderProjectEntries = (id: string, relative = "", level = 2) => {
     const projectGit = gitByProject[id] ?? {
       available: false,
@@ -808,7 +880,10 @@ export function App() {
             <button
               type="button"
               className="tree-button"
+              data-project-id={id}
+              data-project-path={entry.path}
               onClick={() => void toggleProjectEntry(id, entry.path)}
+              onKeyDown={onProjectTreeKeyDown}
             >
               <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
               {entry.name}
@@ -842,6 +917,7 @@ export function App() {
               ? "file active"
               : "file"
           }
+          onKeyDown={onProjectTreeKeyDown}
           title={label}
           onClick={() => {
             selectProject(id);
@@ -888,6 +964,7 @@ export function App() {
     const next = window.prompt("New filename", open.path);
     if (!next || next === open.path) return;
     try {
+      await flush(open);
       const info = await request<FileInfo>(
         `/api/project/rename?projectId=${encodeURIComponent(open.projectId)}`,
         {
@@ -903,7 +980,11 @@ export function App() {
         `project:${open.projectId}:${next}`,
         documents.current.get(key(open)),
       );
+      documents.current.delete(key(open));
       revisions.current.set(`project:${open.projectId}:${next}`, info.revision);
+      revisions.current.delete(key(open));
+      timers.current.delete(key(open));
+      writes.current.delete(key(open));
       await refresh(open.projectId);
       await load({ kind: "file", projectId: open.projectId, path: next });
     } catch (error) {
@@ -922,6 +1003,7 @@ export function App() {
       return setDraftNameError("Draft names must be 100 characters or fewer.");
     const target: Open = { kind: "draft", id: draft.id };
     const identity = key(target);
+    let attempted: unknown, previous: unknown;
     try {
       const current = documents.current.get(identity);
       const loaded = current
@@ -930,6 +1012,7 @@ export function App() {
             `/api/draft/${encodeURIComponent(draft.id)}`,
           );
       const saved = current ?? loaded!.document;
+      previous = saved;
       if (!current) {
         documents.current.set(identity, saved);
         revisions.current.set(identity, loaded!.revision);
@@ -941,6 +1024,7 @@ export function App() {
           name,
         },
       };
+      attempted = next;
       documents.current.set(identity, next);
       await persist(target);
       setDrafts((items) =>
@@ -950,6 +1034,11 @@ export function App() {
       setDraftNameError("");
       if (open?.kind === "draft" && open.id === draft.id) setDocument(next);
     } catch (error) {
+      if (documents.current.get(identity) === attempted) {
+        documents.current.set(identity, previous);
+        if (open?.kind === "draft" && open.id === draft.id)
+          setDocument(previous);
+      }
       setDraftNameError(`Rename failed: ${(error as Error).message}`);
     }
   };
@@ -1035,19 +1124,25 @@ export function App() {
       }
     }
   };
+  const pickerNodeMatches = (path: string, query: string): boolean => {
+    if (!query) return true;
+    const name = path.split("/").filter(Boolean).at(-1) ?? path;
+    return (
+      name.toLocaleLowerCase().includes(query) ||
+      (pickerNodes[path]?.entries.some((entry) =>
+        pickerNodeMatches(`${path}/${entry}`, query),
+      ) ??
+        false)
+    );
+  };
   const renderPickerNode = (path: string, name: string, level = 1) => {
     const node = pickerNodes[path];
     const expanded = expandedPickerNodes.has(path);
     const query = pickerSearch.trim().toLocaleLowerCase();
     const visibleChildren = node?.entries.filter((entry) =>
-      entry.toLocaleLowerCase().includes(query),
+      pickerNodeMatches(`${path}/${entry}`, query),
     );
-    if (
-      query &&
-      !name.toLocaleLowerCase().includes(query) &&
-      !visibleChildren?.length
-    )
-      return null;
+    if (!pickerNodeMatches(path, query)) return null;
     return (
       <div
         key={path}
@@ -1060,7 +1155,10 @@ export function App() {
         <button
           type="button"
           className="tree-button"
-          onClick={() => setDirectory(node ?? { path, entries: [] })}
+          onClick={() => {
+            setDirectory(node ?? { path, entries: [] });
+            setResolvedDirectoryPath(path);
+          }}
           onKeyDown={(event) => {
             const buttons = [
               ...(event.currentTarget
@@ -1266,12 +1364,15 @@ export function App() {
                         ? "tree-button active"
                         : "tree-button"
                     }
+                    data-project-id={project.id}
+                    data-project-path=""
                     disabled={!project.available}
                     title={project.path}
                     onClick={() => {
                       selectProject(project.id);
                       void toggleProjectEntry(project.id);
                     }}
+                    onKeyDown={onProjectTreeKeyDown}
                   >
                     <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
                     {project.name}
@@ -1448,9 +1549,10 @@ export function App() {
                 Folder path
                 <input
                   value={directory?.path ?? ""}
-                  onChange={(event) =>
-                    setDirectory({ path: event.target.value, entries: [] })
-                  }
+                  onChange={(event) => {
+                    setDirectory({ path: event.target.value, entries: [] });
+                    setResolvedDirectoryPath(undefined);
+                  }}
                   onBlur={() => void resolveTypedDirectory()}
                   placeholder="/absolute/path"
                 />
@@ -1490,14 +1592,20 @@ export function App() {
                 )}
               </div>
               {pickerSearch &&
-                !Object.values(pickerNodes).some((node) =>
-                  node.entries.some((entry) =>
-                    entry
-                      .toLocaleLowerCase()
-                      .includes(pickerSearch.trim().toLocaleLowerCase()),
+                !pickerRoots.some((root) =>
+                  pickerNodeMatches(
+                    root,
+                    pickerSearch.trim().toLocaleLowerCase(),
                   ),
                 ) && <p>Only discovered folders are searched.</p>}
-              <button disabled={!directory} onClick={() => void addDirectory()}>
+              <button
+                disabled={
+                  !directory ||
+                  resolvingDirectory ||
+                  resolvedDirectoryPath !== directory.path
+                }
+                onClick={() => void addDirectory()}
+              >
                 Use this folder
               </button>
               <button onClick={closePicker}>Cancel</button>
@@ -1545,12 +1653,12 @@ export function App() {
                       <button
                         type="button"
                         role="option"
-                        aria-selected={selectedNotice === notice.name}
+                        aria-selected={selectedNotice === noticeId(notice)}
                         className={
-                          selectedNotice === notice.name ? "active" : ""
+                          selectedNotice === noticeId(notice) ? "active" : ""
                         }
-                        key={notice.name}
-                        onClick={() => setSelectedNotice(notice.name)}
+                        key={noticeId(notice)}
+                        onClick={() => setSelectedNotice(noticeId(notice))}
                       >
                         {notice.name}
                         <small>
@@ -1561,7 +1669,7 @@ export function App() {
                 </div>
                 {(() => {
                   const notice =
-                    notices.find((item) => item.name === selectedNotice) ??
+                    notices.find((item) => noticeId(item) === selectedNotice) ??
                     notices[0];
                   return notice ? (
                     <article className="license-detail">

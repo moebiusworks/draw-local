@@ -38,7 +38,11 @@ export const commands: Record<CommandId, Command> = {
     name: "Save",
     ariaKeyShortcuts: (value) => (value === "mac" ? "Meta+S" : "Control+S"),
     label: (value) => (value === "mac" ? "⌘S" : "Ctrl+S"),
-    matches: (event, value) => primary(event, value) && physical(event, "KeyS"),
+    matches: (event, value) =>
+      primary(event, value) &&
+      !event.altKey &&
+      !event.shiftKey &&
+      physical(event, "KeyS"),
   },
   "panel-toggle": {
     id: "panel-toggle",

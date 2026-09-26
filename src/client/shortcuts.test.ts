@@ -47,4 +47,18 @@ test("registry uses physical Alt chords and platform primary modifiers", () => {
     commands.save.matches(event({ code: "KeyS", ctrlKey: true }), "other"),
     true,
   );
+  for (const value of ["mac", "other"] as const) {
+    assert.equal(
+      commands.save.matches(
+        event({
+          code: "KeyS",
+          [value === "mac" ? "metaKey" : "ctrlKey"]: true,
+          shiftKey: true,
+        }),
+        value,
+      ),
+      false,
+      "Save must not overlap Excalidraw Save As",
+    );
+  }
 });

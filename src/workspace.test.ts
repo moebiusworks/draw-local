@@ -378,6 +378,94 @@ test("first-save retry reconciles an exact duplicate without deleting divergent 
       (await ws.listDrafts()).some((item) => item.id === divergent.id),
       true,
     );
+    const stale = await ws.createDraft({
+      ...doc,
+      elements: [{ id: "old" }],
+    });
+    await ws.writeDraft(
+      stale.id,
+      { ...doc, elements: [{ id: "new" }] },
+      stale.revision,
+    );
+    await assert.rejects(
+      () =>
+        ws.saveDraft(
+          stale.id,
+          project.id,
+          "stale.excalidraw",
+          { ...doc, elements: [{ id: "old" }] },
+          stale.revision,
+        ),
+      /Draft changed/,
+    );
+    assert.equal(
+      (
+        (await ws.readDraft(stale.id)).document as {
+          elements: { id: string }[];
+        }
+      ).elements[0]?.id,
+      "new",
+    );
+    const retry = await ws.createDraft({
+      ...doc,
+      elements: [{ id: "old-recovery" }],
+    });
+    await ws.createProjectFile(project.id, "retry.excalidraw", {
+      ...doc,
+      elements: [{ id: "old-recovery" }],
+    });
+    await assert.rejects(
+      () =>
+        ws.saveDraft(retry.id, project.id, "retry.excalidraw", {
+          ...doc,
+          elements: [{ id: "new-submission" }],
+        }),
+      /already exists/,
+    );
+    assert.equal(
+      (await ws.listDrafts()).some((item) => item.id === retry.id),
+      true,
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("concurrent project renames do not replace a destination", async () => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-rename-race-"));
+  const root = path.join(base, "project");
+  await mkdir(root);
+  try {
+    const ws = new Workspace(root, isolated(base));
+    const project = await ws.registerProject(root);
+    const first = await ws.createProjectFile(project.id, "first.excalidraw", {
+      ...doc,
+      elements: [{ id: "first" }],
+    });
+    const second = await ws.createProjectFile(project.id, "second.excalidraw", {
+      ...doc,
+      elements: [{ id: "second" }],
+    });
+    const result = await Promise.allSettled([
+      ws.renameProjectFile(
+        project.id,
+        "first.excalidraw",
+        "target.excalidraw",
+        first.revision,
+      ),
+      ws.renameProjectFile(
+        project.id,
+        "second.excalidraw",
+        "target.excalidraw",
+        second.revision,
+      ),
+    ]);
+    assert.equal(
+      result.filter((item) => item.status === "fulfilled").length,
+      1,
+    );
+    assert.equal(result.filter((item) => item.status === "rejected").length, 1);
+    assert.equal((await ws.listProjectFiles(project.id)).length, 2);
   } finally {
     await rm(base, { recursive: true, force: true });
   }
