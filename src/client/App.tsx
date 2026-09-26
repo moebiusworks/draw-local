@@ -209,6 +209,7 @@ export function App() {
     [git, setGit] = useState<{
       available: boolean;
       branch?: string;
+      defaultBranch?: string;
       statuses: Record<string, { label: string }>;
     }>({ available: false, statuses: {} }),
     [theme, setTheme] = useState<"light" | "dark">(() =>
@@ -1130,7 +1131,7 @@ export function App() {
         </div>
         <div className="expanded-only git">
           {git.available
-            ? `Branch: ${git.branch ?? "Detached HEAD"}`
+            ? `Branch: ${git.branch ?? "Detached HEAD"}${git.defaultBranch ? ` · Default: ${git.defaultBranch}` : ""}`
             : activeProject
               ? "Not a Git repository"
               : ""}
