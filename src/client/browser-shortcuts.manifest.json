@@ -1,0 +1,14 @@
+{
+  "reserved": [
+    {
+      "chord": "CtrlOrCmd+O",
+      "reason": "Browser open-file command and Excalidraw Load Scene.",
+      "source": "https://support.google.com/chrome/answer/157179?hl=en"
+    },
+    {
+      "chord": "CtrlOrCmd+Shift+E",
+      "reason": "Conflicts with Excalidraw image export.",
+      "source": "https://code.visualstudio.com/docs/editing/getting-started/tips-and-tricks"
+    }
+  ]
+}
