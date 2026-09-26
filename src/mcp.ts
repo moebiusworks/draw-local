@@ -20,6 +20,14 @@ const text = (value: unknown) => ({
     },
   ],
 });
+const projectFor = async (projectId?: string) => {
+  if (projectId) return projectId;
+  const project = (await workspace.listProjects()).find(
+    (item) => item.path === workspace.root,
+  );
+  if (!project) throw new Error("The default workspace is not registered.");
+  return project.id;
+};
 
 server.registerTool(
   "list_diagrams",
@@ -55,16 +63,16 @@ server.registerTool(
 server.registerTool(
   "read_diagram",
   {
-    description: "Read an Excalidraw JSON file.",
+    description: "Read a drawing and its revision.",
     inputSchema: { path: z.string().min(1) },
   },
-  async ({ path }) => text(await workspace.read(path)),
+  async ({ path }) => text(await workspace.readFile(path)),
 );
 server.registerTool(
   "write_diagram",
   {
     description:
-      "Create or replace an Excalidraw JSON file. Omit projectId for the legacy DRAW_LOCAL_ROOT.",
+      "Create a drawing without revision, or replace an existing drawing with its revision.",
     inputSchema: {
       path: z.string().min(1),
       projectId: z.string().min(1).optional(),
@@ -73,11 +81,10 @@ server.registerTool(
     },
   },
   async ({ path, projectId, document, revision }) => {
-    if (projectId) {
-      if (!revision)
-        throw new Error("revision is required for project writes.");
-      await workspace.writeProjectFile(projectId, path, document, revision);
-    } else await workspace.write(path, document);
+    const id = await projectFor(projectId);
+    if (revision)
+      await workspace.writeProjectFile(id, path, document, revision);
+    else await workspace.createProjectFile(id, path, document);
     return text(`Saved ${path}`);
   },
 );
@@ -85,7 +92,7 @@ server.registerTool(
   "rename_diagram",
   {
     description:
-      "Rename/move a drawing. Omit projectId for the legacy DRAW_LOCAL_ROOT.",
+      "Rename/move an existing drawing using the revision returned by a read.",
     inputSchema: {
       from: z.string().min(1),
       to: z.string().min(1),
@@ -94,11 +101,13 @@ server.registerTool(
     },
   },
   async ({ from, to, projectId, revision }) => {
-    if (projectId) {
-      if (!revision)
-        throw new Error("revision is required for project renames.");
-      await workspace.renameProjectFile(projectId, from, to, revision);
-    } else await workspace.rename(from, to);
+    if (!revision) throw new Error("revision is required for diagram renames.");
+    await workspace.renameProjectFile(
+      await projectFor(projectId),
+      from,
+      to,
+      revision,
+    );
     return text(`Renamed ${from} -> ${to}`);
   },
 );
@@ -106,7 +115,7 @@ server.registerTool(
   "delete_diagram",
   {
     description:
-      "Delete a drawing. Omit projectId for the legacy DRAW_LOCAL_ROOT.",
+      "Delete an existing drawing using the revision returned by a read.",
     inputSchema: {
       path: z.string().min(1),
       projectId: z.string().min(1).optional(),
@@ -114,11 +123,12 @@ server.registerTool(
     },
   },
   async ({ path, projectId, revision }) => {
-    if (projectId) {
-      if (!revision)
-        throw new Error("revision is required for project deletes.");
-      await workspace.removeProjectFile(projectId, path, revision);
-    } else await workspace.remove(path);
+    if (!revision) throw new Error("revision is required for diagram deletes.");
+    await workspace.removeProjectFile(
+      await projectFor(projectId),
+      path,
+      revision,
+    );
     return text(`Deleted ${path}`);
   },
 );

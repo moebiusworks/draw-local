@@ -271,6 +271,7 @@ export function App() {
     [drafts, setDrafts] = useState<Draft[]>([]),
     [open, setOpen] = useState<Open>(),
     [document, setDocument] = useState<unknown>(),
+    [transitioning, setTransitioning] = useState(false),
     [status, setStatus] = useState("Ready"),
     [destination, setDestination] = useState(false),
     [picker, setPicker] = useState(false),
@@ -308,6 +309,7 @@ export function App() {
     [draftName, setDraftName] = useState(""),
     [draftNameError, setDraftNameError] = useState("");
   const openRef = useRef<Open | undefined>(undefined);
+  const draftRenameInput = useRef<HTMLInputElement>(null);
   const documents = useRef(new Map<string, unknown>()),
     revisions = useRef(new Map<string, string>()),
     timers = useRef(new Map<string, ReturnType<typeof setTimeout>>()),
@@ -319,6 +321,7 @@ export function App() {
     loadSequence = useRef(0),
     refreshSequence = useRef(0),
     projectIdRef = useRef<string | undefined>(undefined);
+  const transitionRef = useRef(false);
   const libraryAdapter = useMemo(
     () => ({
       load: async () =>
@@ -651,6 +654,26 @@ export function App() {
       setDirectory(home);
       setResolvedDirectoryPath(home.path);
       setExpandedPickerNodes((current) => new Set([home.path, ...current]));
+      const restored = [...storedPathSet("draw-local.picker-expanded")];
+      const restoredNodes = await Promise.all(
+        restored.map(async (path) => {
+          try {
+            return await request<Directory>(
+              `/api/directories?path=${encodeURIComponent(path)}`,
+            );
+          } catch {
+            return undefined;
+          }
+        }),
+      );
+      setPickerNodes((nodes) => ({
+        ...nodes,
+        ...Object.fromEntries(
+          restoredNodes
+            .filter((node): node is Directory => Boolean(node))
+            .map((node) => [node.path, node]),
+        ),
+      }));
       const savedLocation = localStorage.getItem("draw-local.picker-location");
       if (savedLocation && savedLocation !== home.path)
         await browse(savedLocation);
@@ -698,6 +721,8 @@ export function App() {
   const saveTo = async () => {
     if (!open || !destinationProject || !destinationPath) return;
     try {
+      transitionRef.current = true;
+      setTransitioning(true);
       await flush(open);
       const content = documents.current.get(key(open));
       const result =
@@ -759,6 +784,9 @@ export function App() {
       setDestination(false);
     } catch (error) {
       setStatus(`Save failed: ${(error as Error).message}`);
+    } finally {
+      transitionRef.current = false;
+      setTransitioning(false);
     }
   };
   const save = useCallback(
@@ -768,7 +796,7 @@ export function App() {
       binaryFiles: Record<string, unknown>,
     ) => {
       const target = openRef.current;
-      if (!target) return;
+      if (!target || transitionRef.current) return;
       const identity = key(target);
       const old = documents.current.get(identity);
       documents.current.set(
@@ -1083,6 +1111,8 @@ export function App() {
     const next = window.prompt("New filename", open.path);
     if (!next || next === open.path) return;
     try {
+      transitionRef.current = true;
+      setTransitioning(true);
       await flush(open);
       const info = await request<FileInfo>(
         `/api/project/rename?projectId=${encodeURIComponent(open.projectId)}`,
@@ -1117,6 +1147,9 @@ export function App() {
       await load(nextOpen);
     } catch (error) {
       setStatus(`Rename failed: ${(error as Error).message}`);
+    } finally {
+      transitionRef.current = false;
+      setTransitioning(false);
     }
   };
   const beginDraftRename = (draft: Draft) => {
@@ -1125,6 +1158,9 @@ export function App() {
     setDraftName(draft.name ?? "Untitled draft");
     setDraftNameError("");
   };
+  useEffect(() => {
+    draftRenameInput.current?.select();
+  }, [renamingDraft]);
   const commitDraftRename = async (draft: Draft) => {
     if (cancelledDraftRename.current === draft.id) {
       cancelledDraftRename.current = undefined;
@@ -1427,7 +1463,7 @@ export function App() {
                 <input
                   aria-label="Draft name"
                   autoFocus
-                  ref={(input) => input?.select()}
+                  ref={draftRenameInput}
                   value={draftName}
                   onChange={(event) => setDraftName(event.target.value)}
                   onKeyDown={(event) => {
@@ -1647,6 +1683,7 @@ export function App() {
             onChange={save as never}
             excalidrawAPI={setExcalidrawAPI}
             libraryReturnUrl={libraryReturnUrl}
+            viewModeEnabled={transitioning}
           />
         ) : (
           <div className="empty">

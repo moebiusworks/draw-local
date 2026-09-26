@@ -10,7 +10,10 @@ test("New creates a recoverable draft and Ctrl+S opens first-save", async ({
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "New", exact: true }).click();
-  const draft = page.getByRole("button", { name: "Untitled draft" });
+  const draft = page.getByRole("button", {
+    name: "Untitled draft",
+    exact: true,
+  });
   await expect(draft).toHaveCount(1);
   await draft.click();
   await expect(page.locator(".excalidraw")).toBeVisible();
@@ -48,6 +51,22 @@ test("Save does not reset an active first-save dialog", async ({ page }) => {
   await filename.fill("custom.excalidraw");
   await page.keyboard.press("Control+s");
   await expect(filename).toHaveValue("custom.excalidraw");
+});
+
+test("draft rename supports typing and Escape", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  const draft = page.getByRole("button", {
+    name: "Untitled draft",
+    exact: true,
+  });
+  await draft.focus();
+  await page.keyboard.press("F2");
+  const name = page.getByRole("textbox", { name: "Draft name" });
+  await name.fill("A longer draft name");
+  await page.keyboard.press("Escape");
+  await expect(draft).toBeFocused();
+  await expect(draft).toHaveText("Untitled draft");
 });
 
 test("workspace dialogs trap context and restore their launcher focus", async ({

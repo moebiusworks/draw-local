@@ -1,55 +1,19 @@
 import { promises as fs } from "node:fs";
-import path from "node:path";
-
+const lockfile = JSON.parse(await fs.readFile("package-lock.json", "utf8"));
 const packages = new Map();
-async function walk(dir) {
-  let entries;
-  try {
-    entries = await fs.readdir(dir, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const base = path.join(dir, entry.name);
-    if (entry.name.startsWith("@")) {
-      await walk(base);
-      continue;
-    }
-    try {
-      const pkg = JSON.parse(
-        await fs.readFile(path.join(base, "package.json"), "utf8"),
-      );
-      if (pkg.name && pkg.version) {
-        const names = (await fs.readdir(base))
-          .filter((name) =>
-            /^(license|licence|notice|copying)(\.|$)/i.test(name),
-          )
-          .sort();
-        const notices = [];
-        for (const name of names)
-          notices.push({
-            name,
-            text: (await fs.readFile(path.join(base, name), "utf8")).trim(),
-          });
-        packages.set(pkg.name + "@" + pkg.version, {
-          name: pkg.name,
-          version: pkg.version,
-          license:
-            typeof pkg.license === "string" ? pkg.license : "SEE PACKAGE",
-          repository:
-            typeof pkg.repository === "string"
-              ? pkg.repository
-              : pkg.repository?.url,
-          notices,
-        });
-      }
-    } catch {}
-    await walk(path.join(base, "node_modules"));
-  }
+for (const [location, pkg] of Object.entries(lockfile.packages ?? {})) {
+  if (!location || !pkg.version || pkg.link) continue;
+  const marker = "node_modules/";
+  const index = location.lastIndexOf(marker);
+  if (index < 0) continue;
+  const name = location.slice(index + marker.length);
+  packages.set(`${name}@${pkg.version}`, {
+    name,
+    version: pkg.version,
+    license: typeof pkg.license === "string" ? pkg.license : "SEE PACKAGE",
+    notices: [],
+  });
 }
-
-await walk(path.resolve("node_modules"));
 const noticeData = [
   {
     name: "draw-local",
@@ -68,7 +32,7 @@ const noticeData = [
   ),
 ];
 let out =
-  "# Generated third-party notices\n\n> Generated from the installed dependency tree by npm run notices.\n\n";
+  "# Generated third-party notices\n\n> Generated from package-lock.json by npm run notices.\n\n";
 for (const pkg of noticeData) {
   out +=
     "## " +
@@ -81,7 +45,7 @@ for (const pkg of noticeData) {
   if (pkg.repository) out += "- Repository: " + pkg.repository + "\n";
   out += "\n";
   if (!pkg.notices.length)
-    out += "_No standalone license/notice file found._\n\n";
+    out += "_No standalone license/notice file recorded in the lockfile._\n\n";
   for (const notice of pkg.notices)
     out += "### " + notice.name + "\n\n```text\n" + notice.text + "\n```\n\n";
 }
@@ -102,4 +66,4 @@ if (process.argv.includes("--check")) {
   await fs.mkdir("public", { recursive: true });
   await fs.writeFile("public/third-party-notices.json", json);
 }
-console.error("Wrote notices for " + packages.size + " installed packages.");
+console.error("Wrote notices for " + packages.size + " locked packages.");

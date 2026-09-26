@@ -118,6 +118,7 @@ export class Workspace {
       locksPath,
       createHash("sha256").update(identity).digest("hex"),
     );
+    const owner = path.join(lock, "owner.json");
     await fs.mkdir(locksPath, { recursive: true, mode: 0o700 });
     const deadline = Date.now() + 10_000;
     while (true) {
@@ -126,14 +127,37 @@ export class Workspace {
         break;
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+        try {
+          const record = JSON.parse(await fs.readFile(owner, "utf8")) as {
+            pid?: number;
+            host?: string;
+          };
+          if (record.host === os.hostname() && typeof record.pid === "number") {
+            try {
+              process.kill(record.pid, 0);
+            } catch {
+              await fs.unlink(owner).catch(() => {});
+              await fs.rmdir(lock).catch(() => {});
+              continue;
+            }
+          }
+        } catch {
+          // A creator can be between mkdir and owner write; leave it alone.
+        }
         if (Date.now() >= deadline)
           throw new Error("Workspace is busy in another draw-local process.");
         await new Promise((resolve) => setTimeout(resolve, 20));
       }
     }
     try {
+      await fs.writeFile(
+        owner,
+        JSON.stringify({ pid: process.pid, host: os.hostname() }),
+        { encoding: "utf8", mode: 0o600, flag: "wx" },
+      );
       return await action();
     } finally {
+      await fs.unlink(owner).catch(() => {});
       await fs.rmdir(lock).catch(() => {});
     }
   }
@@ -649,76 +673,91 @@ export class Workspace {
   ) {
     const draftPath = this.resolve(this.draftsPath, `${id}.excalidraw`);
     const transferPath = path.join(this.draftsPath, `${id}.transfer.json`);
-    return this.withWorkspaceLock(`write:${draftPath}`, async () => {
-      this.valid(value, "draft.excalidraw");
-      const source = await fs.readFile(draftPath, "utf8");
-      const revision = this.revision(source);
-      if (expectedRevision !== undefined && expectedRevision !== revision)
-        throw new Error(
-          "Draft changed outside this Save. Your local copy is still recoverable.",
-        );
-      const transfer = {
-        projectId,
-        path: relative,
-        draftRevision: revision,
-        documentRevision: this.revision(json(value)),
-      };
-      let retry = false;
-      try {
-        const prior = JSON.parse(await fs.readFile(transferPath, "utf8"));
-        if (JSON.stringify(prior) !== JSON.stringify(transfer))
-          throw new Error("Destination already exists.");
-        retry = true;
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-      }
-      if (!retry) {
-        // A marker only proves a retry of a transfer that started with an empty
-        // destination. Never create one for an already occupied filename.
+    const root = await this.projectRoot(projectId);
+    this.assertFile(relative);
+    const targetPath = this.resolve(root, relative);
+    return this.withLocks(
+      [`write:${draftPath}`, `write:${targetPath}`],
+      async () => {
+        this.valid(value, "draft.excalidraw");
+        const source = await fs.readFile(draftPath, "utf8");
+        const revision = this.revision(source);
+        if (expectedRevision !== undefined && expectedRevision !== revision)
+          throw new Error(
+            "Draft changed outside this Save. Your local copy is still recoverable.",
+          );
+        const transfer = {
+          projectId,
+          path: relative,
+          draftRevision: revision,
+          documentRevision: this.revision(json(value)),
+        };
+        let retry = false;
         try {
-          await this.readProjectFile(projectId, relative);
-          throw new Error("Destination already exists.");
+          const prior = JSON.parse(await fs.readFile(transferPath, "utf8"));
+          if (JSON.stringify(prior) !== JSON.stringify(transfer))
+            throw new Error("Destination already exists.");
+          retry = true;
         } catch (error) {
           if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         }
+        if (!retry) {
+          // A marker only proves a retry of a transfer that started with an empty
+          // destination. Never create one for an already occupied filename.
+          try {
+            await fs.readFile(targetPath, "utf8");
+            throw new Error("Destination already exists.");
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+          }
+          try {
+            await this.writeAtomic(transferPath, transfer, true);
+          } catch (error) {
+            if ((error as Error).message !== "Destination already exists.")
+              throw error;
+            const prior = JSON.parse(await fs.readFile(transferPath, "utf8"));
+            if (JSON.stringify(prior) !== JSON.stringify(transfer)) throw error;
+          }
+        }
         try {
-          await this.writeAtomic(transferPath, transfer, true);
+          await this.assertNoSymlink(root, targetPath);
+          await fs.mkdir(path.dirname(targetPath), {
+            recursive: true,
+            mode: 0o700,
+          });
+          await this.assertNoSymlink(root, targetPath);
+          await this.writeAtomic(targetPath, value, true);
+          const target = await this.info(root, relative);
+          const latest = await fs.readFile(draftPath, "utf8");
+          if (this.revision(latest) !== revision)
+            throw new Error(
+              "Draft changed during Save. The project copy was retained and the draft remains recoverable.",
+            );
+          await fs.unlink(draftPath);
+          await fs.unlink(transferPath).catch(() => {});
+          return target;
         } catch (error) {
           if ((error as Error).message !== "Destination already exists.")
             throw error;
-          const prior = JSON.parse(await fs.readFile(transferPath, "utf8"));
-          if (JSON.stringify(prior) !== JSON.stringify(transfer)) throw error;
+          // A crash can leave the just-created target alongside its draft. The
+          // private transfer marker proves that this exact draft initiated it;
+          // equal JSON alone is never enough to consume a draft.
+          const target = await this.readRoot(root, relative);
+          if (
+            this.revision(json(target.document)) !== transfer.documentRevision
+          )
+            throw error;
+          const latest = await fs.readFile(draftPath, "utf8");
+          if (this.revision(latest) !== revision)
+            throw new Error(
+              "Draft changed during Save. The project copy was retained and the draft remains recoverable.",
+            );
+          await fs.unlink(draftPath);
+          await fs.unlink(transferPath).catch(() => {});
+          return this.info(root, relative);
         }
-      }
-      try {
-        const target = await this.createProjectFile(projectId, relative, value);
-        const latest = await fs.readFile(draftPath, "utf8");
-        if (this.revision(latest) !== revision)
-          throw new Error(
-            "Draft changed during Save. The project copy was retained and the draft remains recoverable.",
-          );
-        await fs.unlink(draftPath);
-        await fs.unlink(transferPath).catch(() => {});
-        return target;
-      } catch (error) {
-        if ((error as Error).message !== "Destination already exists.")
-          throw error;
-        // A crash can leave the just-created target alongside its draft. The
-        // private transfer marker proves that this exact draft initiated it;
-        // equal JSON alone is never enough to consume a draft.
-        const target = await this.readProjectFile(projectId, relative);
-        if (this.revision(json(target.document)) !== transfer.documentRevision)
-          throw error;
-        const latest = await fs.readFile(draftPath, "utf8");
-        if (this.revision(latest) !== revision)
-          throw new Error(
-            "Draft changed during Save. The project copy was retained and the draft remains recoverable.",
-          );
-        await fs.unlink(draftPath);
-        await fs.unlink(transferPath).catch(() => {});
-        return this.info(await this.projectRoot(projectId), relative);
-      }
-    });
+      },
+    );
   }
   async copyProjectFile(
     fromId: string,
@@ -799,6 +838,9 @@ export class Workspace {
   }
   async read(relative: string) {
     return (await this.readRoot(this.root, relative)).document;
+  }
+  async readFile(relative: string) {
+    return this.readRoot(this.root, relative);
   }
   async write(relative: string, value: unknown) {
     await this.writeRoot(this.root, relative, value);
@@ -888,6 +930,50 @@ export class Workspace {
                 : `${index !== " " ? "Staged" : ""}${index !== " " && worktree !== " " ? "; " : ""}${worktree !== " " ? "Modified" : ""}` ||
                   "Committed";
         statuses[filename] = { index, worktree, label };
+      }
+      // A project can contain independent worktrees. Resolve every drawing
+      // from its own directory and replace the outer-repository attribution
+      // with the nearest repository's porcelain state.
+      for (const file of await this.listProjectFiles(id)) {
+        const absolute = this.resolve(root, file.path);
+        const nearest = await this.git(
+          ["rev-parse", "--show-toplevel"],
+          path.dirname(absolute),
+        ).catch(() => undefined);
+        if (!nearest || nearest === repo) continue;
+        const relative = path
+          .relative(nearest, absolute)
+          .replaceAll(path.sep, "/");
+        const nested = await this.gitRaw(
+          [
+            "status",
+            "--porcelain=v1",
+            "-z",
+            "--ignored",
+            "--untracked-files=all",
+            "--",
+            relative,
+          ],
+          nearest,
+        );
+        const item = nested.split("\0")[0];
+        if (!item) continue;
+        const index = item[0]!;
+        const worktree = item[1]!;
+        const conflicted =
+          index === "U" ||
+          worktree === "U" ||
+          ["DD", "AU", "UD", "UA", "DU", "AA", "UU"].includes(index + worktree);
+        const label =
+          index === "?"
+            ? "Untracked"
+            : index === "!"
+              ? "Ignored"
+              : conflicted
+                ? "Conflicted"
+                : `${index !== " " ? "Staged" : ""}${index !== " " && worktree !== " " ? "; " : ""}${worktree !== " " ? "Modified" : ""}` ||
+                  "Committed";
+        statuses[file.path] = { index, worktree, label };
       }
       return { available: true, branch, defaultBranch, statuses, repo };
     } catch {
