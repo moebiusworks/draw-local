@@ -862,26 +862,6 @@ export function App() {
       setDraftNameError(`Rename failed: ${(error as Error).message}`);
     }
   };
-  const deleteOpen = async () => {
-    if (open?.kind !== "file" || !window.confirm(`Delete ${open.path}?`))
-      return;
-    try {
-      await flush(open);
-      await request<void>(
-        `/api/project/file?projectId=${encodeURIComponent(open.projectId)}&path=${encodeURIComponent(open.path)}`,
-        {
-          method: "DELETE",
-          body: JSON.stringify({ revision: revisions.current.get(key(open)) }),
-        },
-      );
-      openRef.current = undefined;
-      setOpen(undefined);
-      setDocument(undefined);
-      await refresh(open.projectId);
-    } catch (error) {
-      setStatus(`Delete failed: ${(error as Error).message}`);
-    }
-  };
   const reorderProjects = async (ids: string[]) => {
     try {
       setProjects(
@@ -1051,13 +1031,6 @@ export function App() {
             onClick={() => void renameOpen()}
           >
             Rename
-          </button>
-          <button
-            className="expanded-only text-button"
-            disabled={open?.kind !== "file"}
-            onClick={() => void deleteOpen()}
-          >
-            Delete
           </button>
         </div>
         <div className="expanded-only project">
