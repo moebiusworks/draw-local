@@ -312,6 +312,7 @@ export function App() {
     documentStates = useRef(
       new Map<string, "unsaved" | "saving" | "saved" | "conflict">(),
     ),
+    loadSequence = useRef(0),
     refreshSequence = useRef(0),
     projectIdRef = useRef<string | undefined>(undefined);
   const libraryAdapter = useMemo(
@@ -429,6 +430,7 @@ export function App() {
     refreshGit,
   ]);
   const load = useCallback(async (next: Open) => {
+    const sequence = ++loadSequence.current;
     const identity = key(next);
     if (documentStates.current.get(identity) === "conflict") {
       openRef.current = next;
@@ -447,6 +449,7 @@ export function App() {
           : await request<{ document: unknown; revision: string }>(
               `/api/project/file?projectId=${encodeURIComponent(next.projectId)}&path=${encodeURIComponent(next.path)}`,
             );
+      if (sequence !== loadSequence.current) return;
       documents.current.set(identity, result.document);
       const savedTheme = (result.document as { appState?: { theme?: unknown } })
         .appState?.theme;
@@ -463,7 +466,8 @@ export function App() {
       );
       setStatus("Saved");
     } catch (error) {
-      setStatus(`Open failed: ${(error as Error).message}`);
+      if (sequence === loadSequence.current)
+        setStatus(`Open failed: ${(error as Error).message}`);
     }
   }, []);
   useEffect(() => {
