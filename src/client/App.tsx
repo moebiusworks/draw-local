@@ -3,35 +3,680 @@ import "@excalidraw/excalidraw/index.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { mergeDocument } from "./document";
 
-type Project = { id: string; name: string; path: string; available: boolean; error?: string };
+type Project = {
+  id: string;
+  name: string;
+  path: string;
+  available: boolean;
+  error?: string;
+};
 type FileInfo = { path: string; revision: string };
 type Draft = FileInfo & { id: string };
-type Open = { kind: "draft"; id: string } | { kind: "file"; projectId: string; path: string };
+type Open =
+  | { kind: "draft"; id: string }
+  | { kind: "file"; projectId: string; path: string };
 type Directory = { path: string; parent?: string; entries: string[] };
-const emptyDoc = { type: "excalidraw", version: 2, source: "draw-local", elements: [], appState: {}, files: {} };
-const key = (open: Open) => open.kind === "draft" ? `draft:${open.id}` : `project:${open.projectId}:${open.path}`;
-async function request<T>(url: string, init?: RequestInit): Promise<T> { const response = await fetch(url, { ...init, headers: init?.body ? { "content-type": "application/json", ...(init.headers ?? {}) } : init?.headers }); if (!response.ok) { const body = await response.json().catch(() => ({ error: response.statusText })); throw new Error(body.error ?? response.statusText); } return response.status === 204 ? undefined as T : response.json() as Promise<T>; }
+const emptyDoc = {
+  type: "excalidraw",
+  version: 2,
+  source: "draw-local",
+  elements: [],
+  appState: {},
+  files: {},
+};
+const key = (open: Open) =>
+  open.kind === "draft"
+    ? `draft:${open.id}`
+    : `project:${open.projectId}:${open.path}`;
+async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    ...init,
+    headers: init?.body
+      ? { "content-type": "application/json", ...(init.headers ?? {}) }
+      : init?.headers,
+  });
+  if (!response.ok) {
+    const body = await response
+      .json()
+      .catch(() => ({ error: response.statusText }));
+    throw new Error(body.error ?? response.statusText);
+  }
+  return response.status === 204
+    ? (undefined as T)
+    : (response.json() as Promise<T>);
+}
 
 export function App() {
-  const [projects, setProjects] = useState<Project[]>([]), [projectId, setProjectId] = useState<string>(), [files, setFiles] = useState<FileInfo[]>([]), [drafts, setDrafts] = useState<Draft[]>([]), [open, setOpen] = useState<Open>(), [document, setDocument] = useState<unknown>(), [status, setStatus] = useState("Ready"), [destination, setDestination] = useState(false), [picker, setPicker] = useState(false), [directory, setDirectory] = useState<Directory>(), [destinationProject, setDestinationProject] = useState(""), [destinationPath, setDestinationPath] = useState("untitled.excalidraw"), [git, setGit] = useState<{ available: boolean; branch?: string; statuses: Record<string, { label: string }> }>({ available: false, statuses: {} });
-  const openRef = useRef<Open | undefined>(undefined); const documents = useRef(new Map<string, unknown>()), revisions = useRef(new Map<string, string>()), timers = useRef(new Map<string, ReturnType<typeof setTimeout>>()), writes = useRef(new Map<string, Promise<void>>()), documentStates = useRef(new Map<string, "unsaved" | "saving" | "saved" | "conflict">()), refreshSequence = useRef(0), projectIdRef = useRef<string | undefined>(undefined);
-  const refresh = useCallback(async (id?: string) => { const sequence = ++refreshSequence.current; const [nextProjects, nextDrafts] = await Promise.all([request<Project[]>("/api/projects"), request<Draft[]>("/api/drafts")]); if (sequence !== refreshSequence.current) return; setProjects(nextProjects); setDrafts(nextDrafts); const selected = id ?? projectIdRef.current; if (selected) { const [nextFiles, context] = await Promise.all([request<FileInfo[]>(`/api/project/files?projectId=${encodeURIComponent(selected)}`), request<typeof git>(`/api/project/git?projectId=${encodeURIComponent(selected)}`)]); if (sequence !== refreshSequence.current || selected !== projectIdRef.current) return; setFiles(nextFiles.filter((item) => item.path.endsWith(".excalidraw"))); setGit(context); } }, []);
-  const selectProject = useCallback((id: string) => { projectIdRef.current = id; setProjectId(id); void refresh(id); }, [refresh]);
-  const load = useCallback(async (next: Open) => { const identity = key(next); if (documentStates.current.get(identity) === "conflict") { openRef.current = next; setOpen(next); setDocument(documents.current.get(identity)); setStatus("Recovery needed: use Save As or open the recovery draft."); return; } setStatus("Loading..."); try { const result = next.kind === "draft" ? await request<{ document: unknown; revision: string }>(`/api/draft/${encodeURIComponent(next.id)}`) : await request<{ document: unknown; revision: string }>(`/api/project/file?projectId=${encodeURIComponent(next.projectId)}&path=${encodeURIComponent(next.path)}`); documents.current.set(identity, result.document); revisions.current.set(identity, result.revision); documentStates.current.set(identity, "saved"); openRef.current = next; setOpen(next); setDocument(result.document); window.history.replaceState(null, "", `?${next.kind === "draft" ? `draft=${next.id}` : `project=${next.projectId}&file=${encodeURIComponent(next.path)}`}`); setStatus("Saved"); } catch (error) { setStatus(`Open failed: ${(error as Error).message}`); } }, []);
-  useEffect(() => { void request<Project[]>("/api/projects").then((items) => { setProjects(items); const selected = new URLSearchParams(location.search).get("project") || items.find((item) => item.available)?.id; if (selected) { projectIdRef.current = selected; setProjectId(selected); return refresh(selected); } }).then(() => { const qs = new URLSearchParams(location.search), draft = qs.get("draft"), project = qs.get("project"), file = qs.get("file"); if (draft) void load({ kind: "draft", id: draft }); else if (project && file) void load({ kind: "file", projectId: project, path: file }); }).catch((error: Error) => setStatus(`List failed: ${error.message}`)); }, [refresh, load]);
-  const persist = useCallback((target: Open) => { const identity = key(target), next = documents.current.get(identity), previous = writes.current.get(identity) ?? Promise.resolve(); documentStates.current.set(identity, "saving"); const write = previous.catch(() => {}).then(async () => { const revision = revisions.current.get(identity); const result = target.kind === "draft" ? await request<FileInfo>(`/api/draft/${target.id}`, { method: "PUT", body: JSON.stringify({ document: next, revision }) }) : await request<FileInfo>(`/api/project/file?projectId=${encodeURIComponent(target.projectId)}&path=${encodeURIComponent(target.path)}`, { method: "PUT", body: JSON.stringify({ document: next, revision }) }); revisions.current.set(identity, result.revision); documentStates.current.set(identity, "saved"); }); writes.current.set(identity, write); void write.then(() => { if (openRef.current && key(openRef.current) === identity && documents.current.get(identity) === next) setStatus("Saved"); void refresh(target.kind === "file" ? target.projectId : undefined); }).catch(async (error: Error) => { documentStates.current.set(identity, "conflict"); if (target.kind === "file") { try { const recovery = await request<Draft>("/api/drafts", { method: "POST", body: JSON.stringify({ document: next }) }); setStatus(`Save conflicted: recovery draft ${recovery.id} was created. Open it to retry or Save As.`); void refresh(); return; } catch {} } if (openRef.current && key(openRef.current) === identity) setStatus(`Save failed: ${error.message}`); }); return write; }, [refresh]);
-  const flush = useCallback(async (target?: Open) => { if (!target) return; const identity = key(target), timer = timers.current.get(identity); if (timer) { clearTimeout(timer); timers.current.delete(identity); await persist(target); } else await writes.current.get(identity); }, [persist]);
-  const newDraft = async () => { const draft = await request<Draft>("/api/drafts", { method: "POST", body: JSON.stringify({ document: emptyDoc }) }); await refresh(); await load({ kind: "draft", id: draft.id }); };
-  const browse = async (target?: string) => { try { setDirectory(await request<Directory>(`/api/directories${target ? `?path=${encodeURIComponent(target)}` : ""}`)); } catch (error) { setStatus(`Directory failed: ${(error as Error).message}`); } };
-  const resolveTypedDirectory = async () => { if (!directory?.path) return; try { const resolved = await request<{ path: string }>(`/api/directories/resolve?path=${encodeURIComponent(directory.path)}`); setDirectory({ path: resolved.path, entries: [] }); } catch (error) { setStatus(`Directory failed: ${(error as Error).message}`); } };
-  const openPicker = async () => { setPicker(true); await browse(); };
-  const addDirectory = async () => { if (!directory) return; try { const project = await request<Project>("/api/projects", { method: "POST", body: JSON.stringify({ path: directory.path }) }); selectProject(project.id); setPicker(false); } catch (error) { setStatus(`Add directory failed: ${(error as Error).message}`); } };
-  const openDestination = () => { setDestinationProject(projectId ?? ""); setDestinationPath(open?.kind === "file" ? open.path : "untitled.excalidraw"); setDestination(true); };
-  const saveTo = async () => { if (!open || !destinationProject || !destinationPath) return; try { await flush(open); const content = documents.current.get(key(open)); const result = open.kind === "draft" ? await request<FileInfo>(`/api/draft/${open.id}/save`, { method: "POST", body: JSON.stringify({ projectId: destinationProject, path: destinationPath, document: content }) }) : await request<FileInfo>("/api/project/copy", { method: "POST", body: JSON.stringify({ fromProjectId: open.projectId, fromPath: open.path, projectId: destinationProject, path: destinationPath, document: content }) }); documents.current.set(`project:${destinationProject}:${destinationPath}`, content); revisions.current.set(`project:${destinationProject}:${destinationPath}`, result.revision); setProjectId(destinationProject); await refresh(destinationProject); await load({ kind: "file", projectId: destinationProject, path: destinationPath }); setDestination(false); } catch (error) { setStatus(`Save failed: ${(error as Error).message}`); } };
-  const save = useCallback((elements: readonly unknown[], appState: Record<string, unknown>, binaryFiles: Record<string, unknown>) => { const target = openRef.current; if (!target) return; const identity = key(target); const old = documents.current.get(identity); documents.current.set(identity, mergeDocument(old, elements, appState, binaryFiles)); setStatus("Unsaved"); const timer = timers.current.get(identity); if (timer) clearTimeout(timer); timers.current.set(identity, setTimeout(() => { timers.current.delete(identity); void persist(target); }, 600)); }, [persist]);
-  useEffect(() => { const handler = (event: KeyboardEvent) => { const target = event.target as HTMLElement | null; const editable = target?.matches("input, textarea, select, [contenteditable=true]") || Boolean(target?.closest("input, textarea, select, [contenteditable=true], .dialog")); if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s" && openRef.current && !event.defaultPrevented) { event.preventDefault(); if (openRef.current.kind === "draft") openDestination(); else void flush(openRef.current); } if (event.ctrlKey && event.altKey && event.key.toLowerCase() === "n" && !event.defaultPrevented && !editable) { event.preventDefault(); void newDraft(); } }; addEventListener("keydown", handler); return () => removeEventListener("keydown", handler); }, [flush, open]);
+  const [projects, setProjects] = useState<Project[]>([]),
+    [projectId, setProjectId] = useState<string>(),
+    [files, setFiles] = useState<FileInfo[]>([]),
+    [drafts, setDrafts] = useState<Draft[]>([]),
+    [open, setOpen] = useState<Open>(),
+    [document, setDocument] = useState<unknown>(),
+    [status, setStatus] = useState("Ready"),
+    [destination, setDestination] = useState(false),
+    [picker, setPicker] = useState(false),
+    [directory, setDirectory] = useState<Directory>(),
+    [destinationProject, setDestinationProject] = useState(""),
+    [destinationPath, setDestinationPath] = useState("untitled.excalidraw"),
+    [git, setGit] = useState<{
+      available: boolean;
+      branch?: string;
+      statuses: Record<string, { label: string }>;
+    }>({ available: false, statuses: {} });
+  const openRef = useRef<Open | undefined>(undefined);
+  const documents = useRef(new Map<string, unknown>()),
+    revisions = useRef(new Map<string, string>()),
+    timers = useRef(new Map<string, ReturnType<typeof setTimeout>>()),
+    writes = useRef(new Map<string, Promise<void>>()),
+    documentStates = useRef(
+      new Map<string, "unsaved" | "saving" | "saved" | "conflict">(),
+    ),
+    refreshSequence = useRef(0),
+    projectIdRef = useRef<string | undefined>(undefined);
+  const refresh = useCallback(async (id?: string) => {
+    const sequence = ++refreshSequence.current;
+    const [nextProjects, nextDrafts] = await Promise.all([
+      request<Project[]>("/api/projects"),
+      request<Draft[]>("/api/drafts"),
+    ]);
+    if (sequence !== refreshSequence.current) return;
+    setProjects(nextProjects);
+    setDrafts(nextDrafts);
+    const selected = id ?? projectIdRef.current;
+    if (selected) {
+      const [nextFiles, context] = await Promise.all([
+        request<FileInfo[]>(
+          `/api/project/files?projectId=${encodeURIComponent(selected)}`,
+        ),
+        request<typeof git>(
+          `/api/project/git?projectId=${encodeURIComponent(selected)}`,
+        ),
+      ]);
+      if (
+        sequence !== refreshSequence.current ||
+        selected !== projectIdRef.current
+      )
+        return;
+      setFiles(nextFiles.filter((item) => item.path.endsWith(".excalidraw")));
+      setGit(context);
+    }
+  }, []);
+  const selectProject = useCallback(
+    (id: string) => {
+      projectIdRef.current = id;
+      setProjectId(id);
+      void refresh(id);
+    },
+    [refresh],
+  );
+  const load = useCallback(async (next: Open) => {
+    const identity = key(next);
+    if (documentStates.current.get(identity) === "conflict") {
+      openRef.current = next;
+      setOpen(next);
+      setDocument(documents.current.get(identity));
+      setStatus("Recovery needed: use Save As or open the recovery draft.");
+      return;
+    }
+    setStatus("Loading...");
+    try {
+      const result =
+        next.kind === "draft"
+          ? await request<{ document: unknown; revision: string }>(
+              `/api/draft/${encodeURIComponent(next.id)}`,
+            )
+          : await request<{ document: unknown; revision: string }>(
+              `/api/project/file?projectId=${encodeURIComponent(next.projectId)}&path=${encodeURIComponent(next.path)}`,
+            );
+      documents.current.set(identity, result.document);
+      revisions.current.set(identity, result.revision);
+      documentStates.current.set(identity, "saved");
+      openRef.current = next;
+      setOpen(next);
+      setDocument(result.document);
+      window.history.replaceState(
+        null,
+        "",
+        `?${next.kind === "draft" ? `draft=${next.id}` : `project=${next.projectId}&file=${encodeURIComponent(next.path)}`}`,
+      );
+      setStatus("Saved");
+    } catch (error) {
+      setStatus(`Open failed: ${(error as Error).message}`);
+    }
+  }, []);
+  useEffect(() => {
+    void request<Project[]>("/api/projects")
+      .then((items) => {
+        setProjects(items);
+        const selected =
+          new URLSearchParams(location.search).get("project") ||
+          items.find((item) => item.available)?.id;
+        if (selected) {
+          projectIdRef.current = selected;
+          setProjectId(selected);
+          return refresh(selected);
+        }
+      })
+      .then(() => {
+        const qs = new URLSearchParams(location.search),
+          draft = qs.get("draft"),
+          project = qs.get("project"),
+          file = qs.get("file");
+        if (draft) void load({ kind: "draft", id: draft });
+        else if (project && file)
+          void load({ kind: "file", projectId: project, path: file });
+      })
+      .catch((error: Error) => setStatus(`List failed: ${error.message}`));
+  }, [refresh, load]);
+  const persist = useCallback(
+    (target: Open) => {
+      const identity = key(target),
+        next = documents.current.get(identity),
+        previous = writes.current.get(identity) ?? Promise.resolve();
+      documentStates.current.set(identity, "saving");
+      const write = previous
+        .catch(() => {})
+        .then(async () => {
+          const revision = revisions.current.get(identity);
+          const result =
+            target.kind === "draft"
+              ? await request<FileInfo>(`/api/draft/${target.id}`, {
+                  method: "PUT",
+                  body: JSON.stringify({ document: next, revision }),
+                })
+              : await request<FileInfo>(
+                  `/api/project/file?projectId=${encodeURIComponent(target.projectId)}&path=${encodeURIComponent(target.path)}`,
+                  {
+                    method: "PUT",
+                    body: JSON.stringify({ document: next, revision }),
+                  },
+                );
+          revisions.current.set(identity, result.revision);
+          documentStates.current.set(identity, "saved");
+        });
+      writes.current.set(identity, write);
+      void write
+        .then(() => {
+          if (
+            openRef.current &&
+            key(openRef.current) === identity &&
+            documents.current.get(identity) === next
+          )
+            setStatus("Saved");
+          void refresh(target.kind === "file" ? target.projectId : undefined);
+        })
+        .catch(async (error: Error) => {
+          documentStates.current.set(identity, "conflict");
+          if (target.kind === "file") {
+            try {
+              const recovery = await request<Draft>("/api/drafts", {
+                method: "POST",
+                body: JSON.stringify({ document: next }),
+              });
+              setStatus(
+                `Save conflicted: recovery draft ${recovery.id} was created. Open it to retry or Save As.`,
+              );
+              void refresh();
+              return;
+            } catch {}
+          }
+          if (openRef.current && key(openRef.current) === identity)
+            setStatus(`Save failed: ${error.message}`);
+        });
+      return write;
+    },
+    [refresh],
+  );
+  const flush = useCallback(
+    async (target?: Open) => {
+      if (!target) return;
+      const identity = key(target),
+        timer = timers.current.get(identity);
+      if (timer) {
+        clearTimeout(timer);
+        timers.current.delete(identity);
+        await persist(target);
+      } else await writes.current.get(identity);
+    },
+    [persist],
+  );
+  const newDraft = async () => {
+    const draft = await request<Draft>("/api/drafts", {
+      method: "POST",
+      body: JSON.stringify({ document: emptyDoc }),
+    });
+    await refresh();
+    await load({ kind: "draft", id: draft.id });
+  };
+  const browse = async (target?: string) => {
+    try {
+      setDirectory(
+        await request<Directory>(
+          `/api/directories${target ? `?path=${encodeURIComponent(target)}` : ""}`,
+        ),
+      );
+    } catch (error) {
+      setStatus(`Directory failed: ${(error as Error).message}`);
+    }
+  };
+  const resolveTypedDirectory = async () => {
+    if (!directory?.path) return;
+    try {
+      const resolved = await request<{ path: string }>(
+        `/api/directories/resolve?path=${encodeURIComponent(directory.path)}`,
+      );
+      setDirectory({ path: resolved.path, entries: [] });
+    } catch (error) {
+      setStatus(`Directory failed: ${(error as Error).message}`);
+    }
+  };
+  const openPicker = async () => {
+    setPicker(true);
+    await browse();
+  };
+  const addDirectory = async () => {
+    if (!directory) return;
+    try {
+      const project = await request<Project>("/api/projects", {
+        method: "POST",
+        body: JSON.stringify({ path: directory.path }),
+      });
+      selectProject(project.id);
+      setPicker(false);
+    } catch (error) {
+      setStatus(`Add directory failed: ${(error as Error).message}`);
+    }
+  };
+  const openDestination = () => {
+    setDestinationProject(projectId ?? "");
+    setDestinationPath(
+      open?.kind === "file" ? open.path : "untitled.excalidraw",
+    );
+    setDestination(true);
+  };
+  const saveTo = async () => {
+    if (!open || !destinationProject || !destinationPath) return;
+    try {
+      await flush(open);
+      const content = documents.current.get(key(open));
+      const result =
+        open.kind === "draft"
+          ? await request<FileInfo>(`/api/draft/${open.id}/save`, {
+              method: "POST",
+              body: JSON.stringify({
+                projectId: destinationProject,
+                path: destinationPath,
+                document: content,
+              }),
+            })
+          : await request<FileInfo>("/api/project/copy", {
+              method: "POST",
+              body: JSON.stringify({
+                fromProjectId: open.projectId,
+                fromPath: open.path,
+                projectId: destinationProject,
+                path: destinationPath,
+                document: content,
+              }),
+            });
+      documents.current.set(
+        `project:${destinationProject}:${destinationPath}`,
+        content,
+      );
+      revisions.current.set(
+        `project:${destinationProject}:${destinationPath}`,
+        result.revision,
+      );
+      setProjectId(destinationProject);
+      await refresh(destinationProject);
+      await load({
+        kind: "file",
+        projectId: destinationProject,
+        path: destinationPath,
+      });
+      setDestination(false);
+    } catch (error) {
+      setStatus(`Save failed: ${(error as Error).message}`);
+    }
+  };
+  const save = useCallback(
+    (
+      elements: readonly unknown[],
+      appState: Record<string, unknown>,
+      binaryFiles: Record<string, unknown>,
+    ) => {
+      const target = openRef.current;
+      if (!target) return;
+      const identity = key(target);
+      const old = documents.current.get(identity);
+      documents.current.set(
+        identity,
+        mergeDocument(old, elements, appState, binaryFiles),
+      );
+      setStatus("Unsaved");
+      const timer = timers.current.get(identity);
+      if (timer) clearTimeout(timer);
+      timers.current.set(
+        identity,
+        setTimeout(() => {
+          timers.current.delete(identity);
+          void persist(target);
+        }, 600),
+      );
+    },
+    [persist],
+  );
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const editable =
+        target?.matches("input, textarea, select, [contenteditable=true]") ||
+        Boolean(
+          target?.closest(
+            "input, textarea, select, [contenteditable=true], .dialog",
+          ),
+        );
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLowerCase() === "s" &&
+        openRef.current &&
+        !event.defaultPrevented
+      ) {
+        event.preventDefault();
+        if (openRef.current.kind === "draft") openDestination();
+        else void flush(openRef.current);
+      }
+      if (
+        event.ctrlKey &&
+        event.altKey &&
+        event.key.toLowerCase() === "n" &&
+        !event.defaultPrevented &&
+        !editable
+      ) {
+        event.preventDefault();
+        void newDraft();
+      }
+    };
+    addEventListener("keydown", handler);
+    return () => removeEventListener("keydown", handler);
+  }, [flush, open]);
   const activeProject = projects.find((project) => project.id === projectId);
-  const renameOpen = async () => { if (open?.kind !== "file") return; const next = window.prompt("New filename", open.path); if (!next || next === open.path) return; try { const info = await request<FileInfo>(`/api/project/rename?projectId=${encodeURIComponent(open.projectId)}`, { method: "POST", body: JSON.stringify({ from: open.path, to: next, revision: revisions.current.get(key(open)) }) }); documents.current.set(`project:${open.projectId}:${next}`, documents.current.get(key(open))); revisions.current.set(`project:${open.projectId}:${next}`, info.revision); await refresh(open.projectId); await load({ kind: "file", projectId: open.projectId, path: next }); } catch (error) { setStatus(`Rename failed: ${(error as Error).message}`); } };
-  const deleteOpen = async () => { if (open?.kind !== "file" || !window.confirm(`Delete ${open.path}?`)) return; try { await flush(open); await request<void>(`/api/project/file?projectId=${encodeURIComponent(open.projectId)}&path=${encodeURIComponent(open.path)}`, { method: "DELETE", body: JSON.stringify({ revision: revisions.current.get(key(open)) }) }); openRef.current = undefined; setOpen(undefined); setDocument(undefined); await refresh(open.projectId); } catch (error) { setStatus(`Delete failed: ${(error as Error).message}`); } };
-  return <div className="shell"><aside className="sidebar"><div className="brand"><strong>draw-local</strong><span>Git-friendly Excalidraw</span></div><div className="actions"><button onClick={() => void newDraft()}>New</button><button disabled={!open} onClick={() => open?.kind === "draft" ? openDestination() : void flush(open)}>Save</button><button disabled={!open || open.kind !== "file"} onClick={openDestination}>Save As</button><button disabled={open?.kind !== "file"} onClick={() => void renameOpen()}>Rename</button><button disabled={open?.kind !== "file"} onClick={() => void deleteOpen()}>Delete</button></div><label className="project">Project <select title={activeProject?.path} value={projectId} onChange={(event) => selectProject(event.target.value)}>{projects.map((project) => <option key={project.id} value={project.id} disabled={!project.available}>{project.name}{project.available ? "" : " (unavailable)"}</option>)}</select><span className="project-path" title={activeProject?.path}>{activeProject?.path}</span><button onClick={() => void openPicker()}>Browse folders</button></label>{git.available && <div className="git">Branch: {git.branch}</div>}<div className="files"><strong>Drafts</strong>{drafts.map((draft) => <button key={draft.id} className={open?.kind === "draft" && open.id === draft.id ? "file active" : "file"} onClick={() => void load({ kind: "draft", id: draft.id })}>Untitled draft</button>)}<strong>Files</strong>{files.map((item) => { const label = git.statuses[item.path]?.label ?? (git.available ? "Committed" : ""); const icon = label === "Conflicted" ? "⚠" : label === "Untracked" ? "?" : label === "Ignored" ? "⊘" : label.includes("Staged") ? "◆" : label.includes("Modified") ? "●" : "✓"; return <button key={item.path} title={label} aria-label={`${item.path}: ${label}`} className={open?.kind === "file" && open.projectId === projectId && open.path === item.path ? "file active" : "file"} onClick={() => projectId && void load({ kind: "file", projectId, path: item.path })}>{git.available && <span className="git-icon">{icon}</span>}{item.path}</button>; })}</div><div className="status">{status}</div></aside><main className="canvas">{open && document ? <Excalidraw key={key(open)} initialData={document as never} onChange={save as never} /> : <div className="empty"><h1>Local drawings, normal files.</h1><button onClick={() => void newDraft()}>Create a drawing</button></div>}{destination && <div className="dialog"><form onSubmit={(event) => { event.preventDefault(); void saveTo(); }}><h2>{open?.kind === "draft" ? "Save drawing" : "Save As"}</h2><label>Project<select value={destinationProject} onChange={(event) => setDestinationProject(event.target.value)}>{projects.filter((project) => project.available).map((project) => <option key={project.id} value={project.id} title={project.path}>{project.name}</option>)}</select></label><label>Filename<input required value={destinationPath} onChange={(event) => setDestinationPath(event.target.value)} placeholder="architecture/overview.excalidraw" /></label><p>Existing files are protected.</p><button type="submit">Save</button><button type="button" onClick={() => setDestination(false)}>Cancel</button></form></div>}{picker && <div className="dialog"><div className="folder-picker"><h2>Choose project folder</h2><label>Folder path<input value={directory?.path ?? ""} onChange={(event) => setDirectory({ path: event.target.value, entries: [] })} onBlur={() => void resolveTypedDirectory()} placeholder="/absolute/path" /></label><p className="selected-path" title={directory?.path}>{directory?.path}</p><div className="folder-actions"><button disabled={!directory?.parent} onClick={() => directory?.parent && void browse(directory.parent)}>Up</button><button onClick={() => void resolveTypedDirectory()}>Resolve path</button></div><div className="folder-list">{directory?.entries.map((entry) => <button key={entry} onClick={() => directory && void browse(`${directory.path}/${entry}`)}>{entry}</button>)}</div><button disabled={!directory} onClick={() => void addDirectory()}>Use this folder</button><button onClick={() => setPicker(false)}>Cancel</button></div></div>}</main></div>;
+  const renameOpen = async () => {
+    if (open?.kind !== "file") return;
+    const next = window.prompt("New filename", open.path);
+    if (!next || next === open.path) return;
+    try {
+      const info = await request<FileInfo>(
+        `/api/project/rename?projectId=${encodeURIComponent(open.projectId)}`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            from: open.path,
+            to: next,
+            revision: revisions.current.get(key(open)),
+          }),
+        },
+      );
+      documents.current.set(
+        `project:${open.projectId}:${next}`,
+        documents.current.get(key(open)),
+      );
+      revisions.current.set(`project:${open.projectId}:${next}`, info.revision);
+      await refresh(open.projectId);
+      await load({ kind: "file", projectId: open.projectId, path: next });
+    } catch (error) {
+      setStatus(`Rename failed: ${(error as Error).message}`);
+    }
+  };
+  const deleteOpen = async () => {
+    if (open?.kind !== "file" || !window.confirm(`Delete ${open.path}?`))
+      return;
+    try {
+      await flush(open);
+      await request<void>(
+        `/api/project/file?projectId=${encodeURIComponent(open.projectId)}&path=${encodeURIComponent(open.path)}`,
+        {
+          method: "DELETE",
+          body: JSON.stringify({ revision: revisions.current.get(key(open)) }),
+        },
+      );
+      openRef.current = undefined;
+      setOpen(undefined);
+      setDocument(undefined);
+      await refresh(open.projectId);
+    } catch (error) {
+      setStatus(`Delete failed: ${(error as Error).message}`);
+    }
+  };
+  return (
+    <div className="shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <strong>draw-local</strong>
+          <span>Git-friendly Excalidraw</span>
+        </div>
+        <div className="actions">
+          <button onClick={() => void newDraft()}>New</button>
+          <button
+            disabled={!open}
+            onClick={() =>
+              open?.kind === "draft" ? openDestination() : void flush(open)
+            }
+          >
+            Save
+          </button>
+          <button
+            disabled={!open || open.kind !== "file"}
+            onClick={openDestination}
+          >
+            Save As
+          </button>
+          <button
+            disabled={open?.kind !== "file"}
+            onClick={() => void renameOpen()}
+          >
+            Rename
+          </button>
+          <button
+            disabled={open?.kind !== "file"}
+            onClick={() => void deleteOpen()}
+          >
+            Delete
+          </button>
+        </div>
+        <label className="project">
+          Project{" "}
+          <select
+            title={activeProject?.path}
+            value={projectId}
+            onChange={(event) => selectProject(event.target.value)}
+          >
+            {projects.map((project) => (
+              <option
+                key={project.id}
+                value={project.id}
+                disabled={!project.available}
+              >
+                {project.name}
+                {project.available ? "" : " (unavailable)"}
+              </option>
+            ))}
+          </select>
+          <span className="project-path" title={activeProject?.path}>
+            {activeProject?.path}
+          </span>
+          <button onClick={() => void openPicker()}>Browse folders</button>
+        </label>
+        {git.available && <div className="git">Branch: {git.branch}</div>}
+        <div className="files">
+          <strong>Drafts</strong>
+          {drafts.map((draft) => (
+            <button
+              key={draft.id}
+              className={
+                open?.kind === "draft" && open.id === draft.id
+                  ? "file active"
+                  : "file"
+              }
+              onClick={() => void load({ kind: "draft", id: draft.id })}
+            >
+              Untitled draft
+            </button>
+          ))}
+          <strong>Files</strong>
+          {files.map((item) => {
+            const label =
+              git.statuses[item.path]?.label ??
+              (git.available ? "Committed" : "");
+            const icon =
+              label === "Conflicted"
+                ? "⚠"
+                : label === "Untracked"
+                  ? "?"
+                  : label === "Ignored"
+                    ? "⊘"
+                    : label.includes("Staged")
+                      ? "◆"
+                      : label.includes("Modified")
+                        ? "●"
+                        : "✓";
+            return (
+              <button
+                key={item.path}
+                title={label}
+                aria-label={`${item.path}: ${label}`}
+                className={
+                  open?.kind === "file" &&
+                  open.projectId === projectId &&
+                  open.path === item.path
+                    ? "file active"
+                    : "file"
+                }
+                onClick={() =>
+                  projectId &&
+                  void load({ kind: "file", projectId, path: item.path })
+                }
+              >
+                {git.available && <span className="git-icon">{icon}</span>}
+                {item.path}
+              </button>
+            );
+          })}
+        </div>
+        <div className="status">{status}</div>
+      </aside>
+      <main className="canvas">
+        {open && document ? (
+          <Excalidraw
+            key={key(open)}
+            initialData={document as never}
+            onChange={save as never}
+          />
+        ) : (
+          <div className="empty">
+            <h1>Local drawings, normal files.</h1>
+            <button onClick={() => void newDraft()}>Create a drawing</button>
+          </div>
+        )}
+        {destination && (
+          <div className="dialog">
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void saveTo();
+              }}
+            >
+              <h2>{open?.kind === "draft" ? "Save drawing" : "Save As"}</h2>
+              <label>
+                Project
+                <select
+                  value={destinationProject}
+                  onChange={(event) =>
+                    setDestinationProject(event.target.value)
+                  }
+                >
+                  {projects
+                    .filter((project) => project.available)
+                    .map((project) => (
+                      <option
+                        key={project.id}
+                        value={project.id}
+                        title={project.path}
+                      >
+                        {project.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label>
+                Filename
+                <input
+                  required
+                  value={destinationPath}
+                  onChange={(event) => setDestinationPath(event.target.value)}
+                  placeholder="architecture/overview.excalidraw"
+                />
+              </label>
+              <p>Existing files are protected.</p>
+              <button type="submit">Save</button>
+              <button type="button" onClick={() => setDestination(false)}>
+                Cancel
+              </button>
+            </form>
+          </div>
+        )}
+        {picker && (
+          <div className="dialog">
+            <div className="folder-picker">
+              <h2>Choose project folder</h2>
+              <label>
+                Folder path
+                <input
+                  value={directory?.path ?? ""}
+                  onChange={(event) =>
+                    setDirectory({ path: event.target.value, entries: [] })
+                  }
+                  onBlur={() => void resolveTypedDirectory()}
+                  placeholder="/absolute/path"
+                />
+              </label>
+              <p className="selected-path" title={directory?.path}>
+                {directory?.path}
+              </p>
+              <div className="folder-actions">
+                <button
+                  disabled={!directory?.parent}
+                  onClick={() =>
+                    directory?.parent && void browse(directory.parent)
+                  }
+                >
+                  Up
+                </button>
+                <button onClick={() => void resolveTypedDirectory()}>
+                  Resolve path
+                </button>
+              </div>
+              <div className="folder-list">
+                {directory?.entries.map((entry) => (
+                  <button
+                    key={entry}
+                    onClick={() =>
+                      directory && void browse(`${directory.path}/${entry}`)
+                    }
+                  >
+                    {entry}
+                  </button>
+                ))}
+              </div>
+              <button disabled={!directory} onClick={() => void addDirectory()}>
+                Use this folder
+              </button>
+              <button onClick={() => setPicker(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
 }

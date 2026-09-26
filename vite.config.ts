@@ -9,7 +9,9 @@ export default defineConfig({
     host: webHost,
     port: webPort,
     strictPort: true,
-    proxy: { "/api": { target: `http://127.0.0.1:${apiPort}`, changeOrigin: false } }
+    proxy: {
+      "/api": { target: `http://127.0.0.1:${apiPort}`, changeOrigin: false },
+    },
   },
-  build: { outDir: "dist" }
+  build: { outDir: "dist" },
 });
