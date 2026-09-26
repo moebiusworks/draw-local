@@ -982,6 +982,7 @@ export function App() {
           }
           onKeyDown={onProjectTreeKeyDown}
           title={label}
+          aria-label={`${entry.name}${label ? ` — Git: ${label}` : ""}`}
           onClick={() => {
             selectProject(id);
             void load({ kind: "file", projectId: id, path: entry.path });
@@ -1336,6 +1337,15 @@ export function App() {
             : activeProject
               ? "Not a Git repository"
               : ""}
+          {projectId && (
+            <button
+              className="text-button git-refresh"
+              type="button"
+              onClick={() => void refresh(projectId)}
+            >
+              Refresh Git status
+            </button>
+          )}
         </div>
         <div className="expanded-only files">
           <strong>Drafts</strong>
