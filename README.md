@@ -56,6 +56,10 @@ Use **New** (or Ctrl+Alt+N) to create an unnamed draft. Ctrl/Command+S flushes i
 
 The selected Git project shows its branch and per-file read-only state. Save only writes drawing JSON; it never stages or commits.
 
+In the explorer, a sun or moon shows a drawing's stored theme; a split circle means the file has no stored theme. Each drawing has Rename and Trash actions. With a drawing row focused, Delete opens a confirmation, while Shift+Delete skips it. On macOS, Option+Command+Delete also skips confirmation. Deleted drawings and drafts can be restored from the local Trash control. Restore elsewhere lets you choose a registered project if the original root changed or its filename is occupied. Removing a project from the workspace only removes its registration; its files stay on disk.
+
+The folder picker expands a folder when you click its row. Nested Git repository roots are marked in the explorer. You can make one the registered project root, keeping that project's identity and order, or drag a saved drawing onto it to move the file. Drops on Git-backed registered roots work too. Existing destination filenames block the move; dragging never stages or commits a Git change.
+
 ## MCP
 
 ```bash

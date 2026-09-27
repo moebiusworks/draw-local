@@ -3,7 +3,12 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import "@excalidraw/excalidraw/index.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { mergeDocument } from "./document";
-import { commandTooltip, commands, platform } from "./shortcuts";
+import {
+  commandTooltip,
+  commands,
+  drawingDeletionAction,
+  platform,
+} from "./shortcuts";
 
 type Project = {
   id: string;
@@ -13,7 +18,7 @@ type Project = {
   error?: string;
 };
 type FileInfo = { path: string; revision: string };
-type Draft = FileInfo & { id: string; name?: string };
+type Draft = FileInfo & { id: string; name?: string; theme?: "light" | "dark" };
 type Open =
   | { kind: "draft"; id: string }
   | { kind: "file"; projectId: string; path: string };
@@ -23,6 +28,24 @@ type ProjectEntry = {
   path: string;
   kind: "directory" | "file";
   revision?: string;
+  theme?: "light" | "dark";
+  gitRoot?: boolean;
+};
+type TrashEntry = {
+  id: string;
+  kind: "draft" | "file";
+  name: string;
+  projectId?: string;
+  path?: string;
+  deletedAt: string;
+  revision: string;
+};
+type FileTarget = { projectId: string; path: string; revision: string };
+type DeleteTarget = {
+  open: Open;
+  name: string;
+  revision: string;
+  focusId?: string;
 };
 type GitContext = {
   available: boolean;
@@ -55,11 +78,40 @@ const key = (open: Open) =>
   open.kind === "draft"
     ? `draft:${open.id}`
     : `project:${open.projectId}:${open.path}`;
+const dragFileType = "application/x-draw-local-file";
+const fileRowId = (projectId: string, relative: string) =>
+  `file-${projectId}-${encodeURIComponent(relative)}`;
+function draggedFile(transfer: DataTransfer): FileTarget | undefined {
+  try {
+    const value = JSON.parse(transfer.getData(dragFileType)) as FileTarget;
+    return typeof value.projectId === "string" &&
+      typeof value.path === "string" &&
+      typeof value.revision === "string"
+      ? value
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function Icon({
   name,
 }: {
-  name: "new" | "save" | "save-as" | "panel" | "folder" | "github" | "licenses";
+  name:
+    | "new"
+    | "save"
+    | "save-as"
+    | "panel"
+    | "folder"
+    | "github"
+    | "licenses"
+    | "rename"
+    | "trash"
+    | "refresh"
+    | "sun"
+    | "moon"
+    | "theme-auto"
+    | "restore";
 }) {
   const paths = {
     new: (
@@ -87,6 +139,35 @@ function Icon({
     folder: (
       <>
         <path d="M3 7h7l2 2h9v10H3z" />
+      </>
+    ),
+    rename: <path d="m4 20 4-.8L19 8.2 15.8 5 4.8 16zM13.8 7l3.2 3.2" />,
+    trash: (
+      <>
+        <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7M14 10v7" />
+      </>
+    ),
+    refresh: (
+      <>
+        <path d="M20 11a8 8 0 1 0-2.3 6.7M20 4v7h-7" />
+      </>
+    ),
+    sun: (
+      <>
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
+      </>
+    ),
+    moon: <path d="M20 15.5A8 8 0 0 1 8.5 4 8 8 0 1 0 20 15.5Z" />,
+    "theme-auto": (
+      <>
+        <circle cx="12" cy="12" r="8" />
+        <path d="M12 4v16" />
+      </>
+    ),
+    restore: (
+      <>
+        <path d="M4 11a8 8 0 1 1 2.3 6.7M4 4v7h7" />
       </>
     ),
     github: (
@@ -121,7 +202,15 @@ function IconButton({
   revealShortcut,
 }: {
   id?: string;
-  icon: "new" | "save" | "save-as" | "panel" | "folder" | "github" | "licenses";
+  icon:
+    | "new"
+    | "save"
+    | "save-as"
+    | "panel"
+    | "folder"
+    | "github"
+    | "licenses"
+    | "trash";
   command?: keyof typeof commands;
   disabled?: boolean;
   disabledReason?: string;
@@ -136,9 +225,11 @@ function IconButton({
       ? "draw-local on GitHub"
       : icon === "licenses"
         ? "Licenses"
-        : icon === "save-as"
-          ? "Save As"
-          : "Command");
+        : icon === "trash"
+          ? "Trash"
+          : icon === "save-as"
+            ? "Save As"
+            : "Command");
   const tooltip = definition
     ? commandTooltip(
         definition,
@@ -167,6 +258,62 @@ function IconButton({
   );
 }
 
+function ThemeBadge({ theme }: { theme?: "light" | "dark" }) {
+  const label =
+    theme === "dark"
+      ? "Dark theme"
+      : theme === "light"
+        ? "Light theme"
+        : "Theme follows system";
+  return (
+    <span className="theme-badge" title={label} aria-hidden="true">
+      <Icon
+        name={
+          theme === "dark" ? "moon" : theme === "light" ? "sun" : "theme-auto"
+        }
+      />
+    </span>
+  );
+}
+
+function RowAction({
+  id,
+  icon,
+  label,
+  onClick,
+}: {
+  id?: string;
+  icon: "rename" | "trash" | "restore";
+  label: string;
+  onClick: () => void;
+}) {
+  const shortcut =
+    icon === "trash"
+      ? platform() === "mac"
+        ? "Delete or Backspace; Shift+Delete or Option+Command+Delete skips confirmation"
+        : "Delete; Shift+Delete skips confirmation"
+      : undefined;
+  return (
+    <button
+      id={id}
+      className="row-action icon-button"
+      type="button"
+      aria-label={label}
+      aria-keyshortcuts={
+        icon === "trash"
+          ? platform() === "mac"
+            ? "Delete Backspace Shift+Delete Meta+Alt+Backspace Meta+Alt+Delete"
+            : "Delete Shift+Delete"
+          : undefined
+      }
+      title={shortcut ? `${label} (${shortcut})` : label}
+      onClick={onClick}
+    >
+      <Icon name={icon} />
+    </button>
+  );
+}
+
 function Modal({
   children,
   labelledBy,
@@ -189,7 +336,10 @@ function Modal({
     );
     return () => {
       window.requestAnimationFrame(() =>
-        window.document.getElementById(restoreFocusId)?.focus(),
+        (
+          window.document.getElementById(restoreFocusId) ??
+          window.document.getElementById("save-command")
+        )?.focus(),
       );
     };
   }, [restoreFocusId]);
@@ -283,7 +433,11 @@ export function App() {
     [resolvingDirectory, setResolvingDirectory] = useState(false),
     [pickerNodes, setPickerNodes] = useState<Record<string, Directory>>({}),
     [pickerRoots, setPickerRoots] = useState<string[]>([]),
+    [pickerRootLabels, setPickerRootLabels] = useState<Record<string, string>>(
+      {},
+    ),
     [pickerSearch, setPickerSearch] = useState(""),
+    [pickerError, setPickerError] = useState(""),
     [expandedPickerNodes, setExpandedPickerNodes] = useState<Set<string>>(() =>
       storedPathSet("draw-local.picker-expanded"),
     ),
@@ -306,6 +460,20 @@ export function App() {
     [notices, setNotices] = useState<Notice[]>([]),
     [noticeSearch, setNoticeSearch] = useState(""),
     [selectedNotice, setSelectedNotice] = useState<string>("draw-local@0.1.0");
+  const [renameTarget, setRenameTarget] = useState<FileTarget>();
+  const [renamePath, setRenamePath] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>();
+  const [removeTarget, setRemoveTarget] = useState<Project>();
+  const [promoteTarget, setPromoteTarget] = useState<{
+    project: Project;
+    path: string;
+  }>();
+  const [trashOpen, setTrashOpen] = useState(false);
+  const [trashItems, setTrashItems] = useState<TrashEntry[]>([]);
+  const [dialogError, setDialogError] = useState("");
+  const [restoreTarget, setRestoreTarget] = useState<TrashEntry>();
+  const [restoreProject, setRestoreProject] = useState("");
+  const [restorePath, setRestorePath] = useState("");
   const [excalidrawAPI, setExcalidrawAPI] =
     useState<ExcalidrawImperativeAPI | null>(null);
   const [renamingDraft, setRenamingDraft] = useState<string>(),
@@ -324,6 +492,7 @@ export function App() {
     loadSequence = useRef(0),
     refreshSequence = useRef(0),
     gitRefreshSequence = useRef(new Map<string, number>()),
+    gitRootRequested = useRef(new Set<string>()),
     projectEntriesRef = useRef(projectEntries),
     expandedEntriesRef = useRef(expandedEntries),
     projectIdRef = useRef<string | undefined>(undefined);
@@ -367,6 +536,17 @@ export function App() {
     },
     [],
   );
+  useEffect(() => {
+    for (const project of projects) {
+      if (!project.available || gitRootRequested.current.has(project.id))
+        continue;
+      gitRootRequested.current.add(project.id);
+      void refreshGit(project.id).catch((error: Error) => {
+        gitRootRequested.current.delete(project.id);
+        setStatus(`Git refresh failed: ${error.message}`);
+      });
+    }
+  }, [projects, refreshGit]);
   const refresh = useCallback(
     async (id?: string) => {
       const sequence = ++refreshSequence.current;
@@ -418,6 +598,9 @@ export function App() {
     },
     [refreshGit],
   );
+  const refreshTrash = useCallback(async () => {
+    setTrashItems(await request<TrashEntry[]>("/api/trash"));
+  }, []);
   const selectProject = useCallback(
     (id: string) => {
       projectIdRef.current = id;
@@ -648,6 +831,7 @@ export function App() {
   };
   const browse = async (target?: string) => {
     try {
+      setPickerError("");
       const next = await request<Directory>(
         `/api/directories${target ? `?path=${encodeURIComponent(target)}` : ""}`,
       );
@@ -655,6 +839,7 @@ export function App() {
       setResolvedDirectoryPath(next.path);
       setPickerNodes((nodes) => ({ ...nodes, [next.path]: next }));
     } catch (error) {
+      setPickerError((error as Error).message);
       setStatus(`Directory failed: ${(error as Error).message}`);
     }
   };
@@ -662,12 +847,14 @@ export function App() {
     if (!directory?.path) return;
     setResolvingDirectory(true);
     try {
+      setPickerError("");
       const resolved = await request<{ path: string }>(
         `/api/directories/resolve?path=${encodeURIComponent(directory.path)}`,
       );
       setDirectory({ path: resolved.path, entries: [] });
       await browse(resolved.path);
     } catch (error) {
+      setPickerError((error as Error).message);
       setStatus(`Directory failed: ${(error as Error).message}`);
     } finally {
       setResolvingDirectory(false);
@@ -675,17 +862,32 @@ export function App() {
   };
   const openPicker = async () => {
     setPicker(true);
+    setPickerError("");
     try {
-      const home = await request<Directory>("/api/directories");
-      const roots = [
-        ...new Set([
-          home.path,
-          ...projects
-            .filter((project) => project.available)
-            .map((project) => project.path),
-        ]),
+      const [home, config] = await Promise.all([
+        request<Directory>("/api/directories"),
+        request<{ launchDirectory: string }>("/api/config"),
+      ]);
+      const rootOptions: Array<[string, string]> = [
+        [home.path, "Home"],
+        [config.launchDirectory, "Launch folder"],
+        ...projects
+          .filter((project) => project.available)
+          .map((project): [string, string] => [
+            project.path,
+            `Project: ${project.name}`,
+          ]),
       ];
+      const roots = [...new Set(rootOptions.map(([root]) => root))];
       setPickerRoots(roots);
+      setPickerRootLabels(
+        Object.fromEntries(
+          roots.map((root) => [
+            root,
+            rootOptions.find(([candidate]) => candidate === root)![1],
+          ]),
+        ),
+      );
       setPickerNodes({ [home.path]: home });
       setDirectory(home);
       setResolvedDirectoryPath(home.path);
@@ -714,6 +916,7 @@ export function App() {
       if (savedLocation && savedLocation !== home.path)
         await browse(savedLocation);
     } catch (error) {
+      setPickerError((error as Error).message);
       setStatus(`Directory failed: ${(error as Error).message}`);
     }
   };
@@ -967,6 +1170,13 @@ export function App() {
         setStatus(`License information failed to load: ${error.message}`),
       );
   }, [licenses, notices.length]);
+  useEffect(() => {
+    if (trashOpen)
+      void refreshTrash().catch((error: Error) => {
+        setDialogError(error.message);
+        setStatus(`Trash failed: ${error.message}`);
+      });
+  }, [trashOpen, refreshTrash]);
   const activeProject = projects.find((project) => project.id === projectId);
   const git: GitContext = projectId
     ? (gitByProject[projectId] ?? {
@@ -1051,7 +1261,25 @@ export function App() {
             role="treeitem"
             aria-level={level}
             aria-expanded={expanded}
-            className="tree-row directory-row"
+            className={`tree-row directory-row ${entry.gitRoot ? "git-root" : ""}`}
+            onDragOver={
+              entry.gitRoot
+                ? (event) => {
+                    if (event.dataTransfer.types.includes(dragFileType))
+                      event.preventDefault();
+                  }
+                : undefined
+            }
+            onDrop={
+              entry.gitRoot
+                ? (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const source = draggedFile(event.dataTransfer);
+                    if (source) void moveDrawing(source, id, entry.path);
+                  }
+                : undefined
+            }
           >
             <button
               type="button"
@@ -1062,8 +1290,30 @@ export function App() {
               onKeyDown={onProjectTreeKeyDown}
             >
               <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
+              <Icon name="folder" />
               {entry.name}
+              {entry.gitRoot && (
+                <span className="git-root-label" title="Git repository root">
+                  Git
+                </span>
+              )}
             </button>
+            {entry.gitRoot && (
+              <button
+                className="text-button promote-button"
+                type="button"
+                title={`Make ${entry.name} the project root`}
+                onClick={() => {
+                  const project = projects.find((item) => item.id === id);
+                  if (project) {
+                    setDialogError("");
+                    setPromoteTarget({ project, path: entry.path });
+                  }
+                }}
+              >
+                Make root
+              </button>
+            )}
             <div role="group">
               {renderProjectEntries(id, entry.path, level + 1)}
             </div>
@@ -1089,10 +1339,16 @@ export function App() {
         : gitState?.worktree && gitState.worktree !== " "
           ? "●"
           : "";
+      const target: FileTarget = {
+        projectId: id,
+        path: entry.path,
+        revision: entry.revision ?? "",
+      };
+      const isDrawing = entry.path.toLowerCase().endsWith(".excalidraw");
       return (
-        <button
+        <div
           key={childIdentity}
-          type="button"
+          className="drawing-row"
           role="treeitem"
           aria-level={level}
           aria-current={
@@ -1102,33 +1358,80 @@ export function App() {
               ? "page"
               : undefined
           }
-          className={
-            open?.kind === "file" &&
-            open.projectId === id &&
-            open.path === entry.path
-              ? "file active"
-              : "file"
+          aria-label={`${entry.name}${isDrawing ? `, ${entry.theme === "dark" ? "dark theme" : entry.theme === "light" ? "light theme" : "theme follows system"}` : ""}${label ? `, Git: ${label}` : ""}`}
+          onKeyDown={(event) =>
+            deletionShortcut(event, {
+              open: { kind: "file", projectId: id, path: entry.path },
+              name: entry.name,
+              revision: entry.revision ?? "",
+              focusId: fileRowId(id, entry.path),
+            })
           }
-          onKeyDown={onProjectTreeKeyDown}
-          title={label}
-          aria-label={`${entry.name}${label ? ` — Git: ${label}` : ""}`}
-          onClick={() => {
-            selectProject(id);
-            void load({ kind: "file", projectId: id, path: entry.path });
-          }}
         >
-          {label && (
-            <span
-              className="git-icon"
-              aria-hidden="true"
-              data-git-state={label}
-            >
-              <span>{base}</span>
-              {overlay && <sup>{overlay}</sup>}
-            </span>
-          )}
-          {entry.name}
-        </button>
+          <button
+            id={fileRowId(id, entry.path)}
+            type="button"
+            className={
+              open?.kind === "file" &&
+              open.projectId === id &&
+              open.path === entry.path
+                ? "file active"
+                : "file"
+            }
+            onKeyDown={onProjectTreeKeyDown}
+            title={label || entry.name}
+            draggable
+            onDragStart={(event) => {
+              event.stopPropagation();
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData(dragFileType, JSON.stringify(target));
+            }}
+            onClick={() => {
+              selectProject(id);
+              void load({ kind: "file", projectId: id, path: entry.path });
+            }}
+          >
+            {label && (
+              <span
+                className="git-icon"
+                aria-hidden="true"
+                data-git-state={label}
+                title={`Git: ${label}`}
+              >
+                <span>{base}</span>
+                {overlay && <sup>{overlay}</sup>}
+              </span>
+            )}
+            {isDrawing && <ThemeBadge theme={entry.theme} />}
+            <span className="drawing-name">{entry.name}</span>
+          </button>
+          <div className="drawing-actions">
+            <RowAction
+              id={`rename-${fileRowId(id, entry.path)}`}
+              icon="rename"
+              label={`Rename ${entry.name}`}
+              onClick={() => {
+                setDialogError("");
+                setRenameTarget(target);
+                setRenamePath(entry.path);
+              }}
+            />
+            <RowAction
+              id={`trash-${fileRowId(id, entry.path)}`}
+              icon="trash"
+              label={`Delete ${entry.name}`}
+              onClick={() => {
+                setDialogError("");
+                setDeleteTarget({
+                  open: { kind: "file", projectId: id, path: entry.path },
+                  name: entry.name,
+                  revision: entry.revision ?? "",
+                  focusId: `trash-${fileRowId(id, entry.path)}`,
+                });
+              }}
+            />
+          </div>
+        </div>
       );
     });
   };
@@ -1147,29 +1450,45 @@ export function App() {
     addEventListener("pointermove", move);
     addEventListener("pointerup", up);
   };
-  const renameOpen = async () => {
-    if (open?.kind !== "file") return;
-    const next = window.prompt("New filename", open.path);
-    if (!next || next === open.path) return;
+  const renameFile = async () => {
+    const target = renameTarget;
+    const next = renamePath.trim();
+    if (!target || !next) return;
+    if (next === target.path) {
+      setRenameTarget(undefined);
+      return;
+    }
+    const currentOpen =
+      open?.kind === "file" &&
+      open.projectId === target.projectId &&
+      open.path === target.path
+        ? open
+        : undefined;
     try {
       transitionRef.current = true;
       setTransitioning(true);
-      await flush(open);
+      if (currentOpen) {
+        await flush(currentOpen);
+        if (documentStates.current.get(key(currentOpen)) === "conflict")
+          throw new Error("Resolve the open drawing's save conflict first.");
+      }
       const info = await request<FileInfo>(
-        `/api/project/rename?projectId=${encodeURIComponent(open.projectId)}`,
+        `/api/project/rename?projectId=${encodeURIComponent(target.projectId)}`,
         {
           method: "POST",
           body: JSON.stringify({
-            from: open.path,
+            from: target.path,
             to: next,
-            revision: revisions.current.get(key(open)),
+            revision: currentOpen
+              ? revisions.current.get(key(currentOpen))
+              : target.revision,
           }),
         },
       );
-      const oldIdentity = key(open);
+      const oldIdentity = `project:${target.projectId}:${target.path}`;
       const nextOpen: Open = {
         kind: "file",
-        projectId: open.projectId,
+        projectId: target.projectId,
         path: next,
       };
       // Edits can arrive while the rename request is in flight. Move that
@@ -1177,16 +1496,30 @@ export function App() {
       const latest = documents.current.get(oldIdentity);
       const pending = timers.current.get(oldIdentity);
       if (pending) clearTimeout(pending);
-      documents.current.set(`project:${open.projectId}:${next}`, latest);
+      if (latest !== undefined) documents.current.set(key(nextOpen), latest);
       documents.current.delete(oldIdentity);
-      revisions.current.set(`project:${open.projectId}:${next}`, info.revision);
+      revisions.current.set(key(nextOpen), info.revision);
       revisions.current.delete(oldIdentity);
       timers.current.delete(oldIdentity);
       writes.current.delete(oldIdentity);
-      if (latest !== undefined) await persist(nextOpen);
-      await refresh(open.projectId);
-      await load(nextOpen);
+      if (currentOpen && latest !== undefined) await persist(nextOpen);
+      await loadProjectEntries(
+        target.projectId,
+        target.path.split("/").slice(0, -1).join("/"),
+      );
+      if (
+        next.split("/").slice(0, -1).join("/") !==
+        target.path.split("/").slice(0, -1).join("/")
+      )
+        await loadProjectEntries(
+          target.projectId,
+          next.split("/").slice(0, -1).join("/"),
+        );
+      await refreshGit(target.projectId);
+      if (currentOpen) await load(nextOpen);
+      setRenameTarget(undefined);
     } catch (error) {
+      setDialogError((error as Error).message);
       setStatus(`Rename failed: ${(error as Error).message}`);
     } finally {
       transitionRef.current = false;
@@ -1291,31 +1624,283 @@ export function App() {
         { method: "POST", body: JSON.stringify({ path: directory }) },
       );
       await retryProject();
+      await refreshGit(project.id);
     } catch (error) {
       setStatus(`Locate project failed: ${(error as Error).message}`);
     }
   };
   const removeProject = async (project: Project) => {
     const isOpen = open?.kind === "file" && open.projectId === project.id;
-    if (
-      !window.confirm(
-        `Remove ${project.name} from this workspace? Its files will not be changed.`,
-      )
-    )
-      return;
     try {
-      if (isOpen) await flush(open);
+      if (isOpen) {
+        await flush(open);
+        if (documentStates.current.get(key(open)) === "conflict")
+          throw new Error("Resolve the open drawing's save conflict first.");
+      }
       if (isOpen) await newDraft();
       await request<void>(`/api/projects/${encodeURIComponent(project.id)}`, {
         method: "DELETE",
       });
+      setRemoveTarget(undefined);
       if (projectId === project.id) {
         projectIdRef.current = undefined;
         setProjectId(undefined);
       }
       await retryProject();
     } catch (error) {
+      setDialogError((error as Error).message);
       setStatus(`Remove project failed: ${(error as Error).message}`);
+    }
+  };
+  const promoteProject = async () => {
+    if (!promoteTarget) return;
+    const { project, path } = promoteTarget;
+    try {
+      if (open?.kind === "file" && open.projectId === project.id) {
+        await flush(open);
+        if (documentStates.current.get(key(open)) === "conflict")
+          throw new Error("Resolve the open drawing's save conflict first.");
+        await newDraft();
+      }
+      await request<Project>(
+        `/api/projects/${encodeURIComponent(project.id)}/promote`,
+        {
+          method: "POST",
+          body: JSON.stringify({ path }),
+        },
+      );
+      setPromoteTarget(undefined);
+      projectEntriesRef.current = Object.fromEntries(
+        Object.entries(projectEntriesRef.current).filter(
+          ([identity]) => !identity.startsWith(`${project.id}:`),
+        ),
+      );
+      setProjectEntries(projectEntriesRef.current);
+      const expanded = new Set(
+        [...expandedEntriesRef.current].filter(
+          (identity) => !identity.startsWith(`${project.id}:`),
+        ),
+      );
+      expanded.add(`${project.id}:`);
+      expandedEntriesRef.current = expanded;
+      setExpandedEntries(expanded);
+      await retryProject();
+      await loadProjectEntries(project.id);
+      await refreshGit(project.id);
+      selectProject(project.id);
+    } catch (error) {
+      setDialogError((error as Error).message);
+      setStatus(`Project root change failed: ${(error as Error).message}`);
+    }
+  };
+  const deleteDrawing = async (target: DeleteTarget) => {
+    const currentOpen =
+      open && key(open) === key(target.open) ? open : undefined;
+    let deleted = false;
+    try {
+      transitionRef.current = true;
+      setTransitioning(true);
+      if (currentOpen) {
+        await flush(currentOpen);
+        if (documentStates.current.get(key(currentOpen)) === "conflict")
+          throw new Error("Resolve the open drawing's save conflict first.");
+      }
+      const revision = currentOpen
+        ? revisions.current.get(key(currentOpen))
+        : target.revision;
+      if (!revision)
+        throw new Error(
+          "Drawing revision is unavailable. Refresh and try again.",
+        );
+      if (target.open.kind === "draft") {
+        await request<TrashEntry>(
+          `/api/draft/${encodeURIComponent(target.open.id)}/trash`,
+          {
+            method: "POST",
+            body: JSON.stringify({ revision }),
+          },
+        );
+      } else {
+        await request<TrashEntry>("/api/project/trash", {
+          method: "POST",
+          body: JSON.stringify({
+            projectId: target.open.projectId,
+            path: target.open.path,
+            revision,
+          }),
+        });
+      }
+      deleted = true;
+      setDeleteTarget(undefined);
+      if (currentOpen) {
+        openRef.current = undefined;
+        setOpen(undefined);
+        setDocument(undefined);
+      }
+      if (target.open.kind === "file") {
+        await loadProjectEntries(
+          target.open.projectId,
+          target.open.path.split("/").slice(0, -1).join("/"),
+        );
+        await refreshGit(target.open.projectId);
+      }
+      const identity = key(target.open);
+      const timer = timers.current.get(identity);
+      if (timer) clearTimeout(timer);
+      timers.current.delete(identity);
+      documents.current.delete(identity);
+      revisions.current.delete(identity);
+      writes.current.delete(identity);
+      documentStates.current.delete(identity);
+      if (currentOpen) await newDraft();
+      else await refresh();
+      await refreshTrash();
+      setStatus(`${target.name} moved to Trash.`);
+    } catch (error) {
+      if (!deleted) setDialogError((error as Error).message);
+      setStatus(
+        `${deleted ? "Moved to Trash, but the view did not refresh" : "Delete failed"}: ${(error as Error).message}`,
+      );
+    } finally {
+      transitionRef.current = false;
+      setTransitioning(false);
+    }
+  };
+  const restoreDrawing = async (
+    item: TrashEntry,
+    destination?: { projectId: string; path: string },
+  ) => {
+    let restoredFile = false;
+    try {
+      const restored = await request<TrashEntry>(
+        `/api/trash/${encodeURIComponent(item.id)}/restore`,
+        {
+          method: "POST",
+          ...(destination ? { body: JSON.stringify(destination) } : {}),
+        },
+      );
+      restoredFile = true;
+      setDialogError("");
+      setRestoreTarget(undefined);
+      await refreshTrash();
+      if (restored.kind === "file" && restored.projectId && restored.path) {
+        await loadProjectEntries(restored.projectId);
+        await loadProjectEntries(
+          restored.projectId,
+          restored.path.split("/").slice(0, -1).join("/"),
+        );
+        await refreshGit(restored.projectId);
+      } else await refresh();
+      setStatus(`${item.name} restored.`);
+    } catch (error) {
+      setDialogError((error as Error).message);
+      setStatus(
+        `${restoredFile ? "Restored, but the view did not refresh" : "Restore failed"}: ${(error as Error).message}`,
+      );
+    }
+  };
+  const beginRestoreElsewhere = (item: TrashEntry) => {
+    setDialogError("");
+    setRestoreProject(
+      projects.some(
+        (project) => project.id === item.projectId && project.available,
+      )
+        ? item.projectId!
+        : (projects.find((project) => project.available)?.id ?? ""),
+    );
+    setRestorePath(item.path ?? item.name);
+    setRestoreTarget(item);
+  };
+  const moveDrawing = async (
+    source: FileTarget,
+    toProjectId: string,
+    toDirectory = "",
+  ) => {
+    const currentOpen =
+      open?.kind === "file" &&
+      open.projectId === source.projectId &&
+      open.path === source.path
+        ? open
+        : undefined;
+    let moved = false;
+    try {
+      transitionRef.current = true;
+      setTransitioning(true);
+      if (currentOpen) {
+        await flush(currentOpen);
+        if (documentStates.current.get(key(currentOpen)) === "conflict")
+          throw new Error("Resolve the open drawing's save conflict first.");
+      }
+      const revision = currentOpen
+        ? revisions.current.get(key(currentOpen))
+        : source.revision;
+      if (!revision)
+        throw new Error(
+          "Drawing revision is unavailable. Refresh and try again.",
+        );
+      const result = await request<FileInfo>("/api/project/move", {
+        method: "POST",
+        body: JSON.stringify({
+          fromProjectId: source.projectId,
+          fromPath: source.path,
+          toProjectId,
+          toDirectory,
+          revision,
+        }),
+      });
+      moved = true;
+      if (currentOpen) {
+        const movedOpen: Open = {
+          kind: "file",
+          projectId: toProjectId,
+          path: result.path,
+        };
+        openRef.current = undefined;
+        setOpen(undefined);
+        setDocument(undefined);
+        projectIdRef.current = toProjectId;
+        setProjectId(toProjectId);
+        await load(movedOpen);
+      }
+      await Promise.all([
+        loadProjectEntries(
+          source.projectId,
+          source.path.split("/").slice(0, -1).join("/"),
+        ),
+        loadProjectEntries(toProjectId, toDirectory),
+      ]);
+      await Promise.all([
+        refreshGit(source.projectId),
+        refreshGit(toProjectId),
+      ]);
+      setStatus(`Moved ${source.path} to ${result.path}.`);
+    } catch (error) {
+      setStatus(
+        `${moved ? "Drawing moved, but the view did not refresh" : "Move failed"}: ${(error as Error).message}`,
+      );
+    } finally {
+      transitionRef.current = false;
+      setTransitioning(false);
+    }
+  };
+  const deletionShortcut = (
+    event: React.KeyboardEvent,
+    target: DeleteTarget,
+  ) => {
+    if (
+      (event.target as HTMLElement).closest(
+        "input, textarea, select, [contenteditable=true]",
+      )
+    )
+      return;
+    const action = drawingDeletionAction(event, platform());
+    if (!action) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (action === "bypass") void deleteDrawing(target);
+    else {
+      setDialogError("");
+      setDeleteTarget(target);
     }
   };
   const togglePickerNode = async (path: string) => {
@@ -1332,7 +1917,12 @@ export function App() {
           `/api/directories?path=${encodeURIComponent(path)}`,
         );
         setPickerNodes((nodes) => ({ ...nodes, [path]: next }));
+        setResolvedDirectoryPath(next.path);
       } catch (error) {
+        setPickerError((error as Error).message);
+        setExpandedPickerNodes(
+          (current) => new Set([...current].filter((item) => item !== path)),
+        );
         setStatus(`Directory failed: ${(error as Error).message}`);
       }
     }
@@ -1368,9 +1958,13 @@ export function App() {
         <button
           type="button"
           className="tree-button"
+          data-picker-path={path}
+          title={path}
           onClick={() => {
+            setPickerError("");
             setDirectory(node ?? { path, entries: [] });
-            setResolvedDirectoryPath(path);
+            setResolvedDirectoryPath(node ? path : undefined);
+            void togglePickerNode(path);
           }}
           onKeyDown={(event) => {
             const buttons = [
@@ -1412,6 +2006,7 @@ export function App() {
           }}
         >
           <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
+          <Icon name="folder" />
           {name}
         </button>
         {expanded && (
@@ -1461,28 +2056,14 @@ export function App() {
           />
           <IconButton
             icon="save-as"
-            disabled={!open || open.kind !== "file"}
-            disabledReason="Save a drawing first"
+            disabled={!open}
+            disabledReason="Open a drawing first"
             onClick={openDestination}
           />
-          <span className="expanded-only action-separator" />
-          <button
-            className="expanded-only text-button"
-            disabled={open?.kind !== "file"}
-            onClick={() => void renameOpen()}
-          >
-            Rename
-          </button>
-        </div>
-        <div className="expanded-only project">
-          <div className="section-heading">Projects</div>
-          <span className="project-path">
-            Registered project roots appear below.
-          </span>
         </div>
         <div className="expanded-only git">
           {git.available
-            ? `Branch: ${git.branch ?? "Detached HEAD"}${git.defaultBranch ? ` · Default: ${git.defaultBranch}` : ""}`
+            ? `Branch: ${git.branch ?? "Detached HEAD"}`
             : activeProject
               ? "Not a Git repository"
               : ""}
@@ -1490,16 +2071,29 @@ export function App() {
             <button
               className="text-button git-refresh"
               type="button"
+              aria-label="Refresh Git status"
+              title="Refresh Git status"
               onClick={() => void refresh(projectId)}
             >
-              Refresh Git status
+              <Icon name="refresh" />
             </button>
           )}
         </div>
         <div className="expanded-only files">
           <strong>Drafts</strong>
           {drafts.map((draft) => (
-            <div key={draft.id} className="draft-row">
+            <div
+              key={draft.id}
+              className="draft-row"
+              onKeyDown={(event) =>
+                deletionShortcut(event, {
+                  open: { kind: "draft", id: draft.id },
+                  name: draft.name ?? "Untitled draft",
+                  revision: draft.revision,
+                  focusId: `draft-${draft.id}`,
+                })
+              }
+            >
               {renamingDraft === draft.id ? (
                 <input
                   aria-label="Draft name"
@@ -1543,7 +2137,10 @@ export function App() {
                     }
                   }}
                 >
-                  {draft.name ?? "Untitled draft"}
+                  <ThemeBadge theme={draft.theme} />
+                  <span className="drawing-name">
+                    {draft.name ?? "Untitled draft"}
+                  </span>
                 </button>
               )}
               {renamingDraft === draft.id && draftNameError && (
@@ -1551,14 +2148,26 @@ export function App() {
                   {draftNameError}
                 </span>
               )}
-              <button
-                className="draft-rename text-button"
-                type="button"
-                aria-label={`Rename ${draft.name ?? "Untitled draft"}`}
-                onClick={() => beginDraftRename(draft)}
-              >
-                Rename
-              </button>
+              <div className="drawing-actions">
+                <RowAction
+                  icon="rename"
+                  label={`Rename ${draft.name ?? "Untitled draft"}`}
+                  onClick={() => beginDraftRename(draft)}
+                />
+                <RowAction
+                  icon="trash"
+                  label={`Delete ${draft.name ?? "Untitled draft"}`}
+                  onClick={() => {
+                    setDialogError("");
+                    setDeleteTarget({
+                      open: { kind: "draft", id: draft.id },
+                      name: draft.name ?? "Untitled draft",
+                      revision: draft.revision,
+                      focusId: `draft-${draft.id}`,
+                    });
+                  }}
+                />
+              </div>
             </div>
           ))}
           <strong>Projects</strong>
@@ -1575,12 +2184,27 @@ export function App() {
                   aria-expanded={project.available ? expanded : undefined}
                   className="tree-row project-root"
                   draggable
-                  onDragStart={(event) =>
-                    event.dataTransfer.setData("text/plain", project.id)
-                  }
-                  onDragOver={(event) => event.preventDefault()}
+                  onDragStart={(event) => {
+                    if ((event.target as HTMLElement).closest(".drawing-row"))
+                      return;
+                    event.dataTransfer.setData("text/plain", project.id);
+                  }}
+                  onDragOver={(event) => {
+                    if (
+                      event.dataTransfer.types.includes(dragFileType) &&
+                      !projectGit?.available
+                    )
+                      return;
+                    event.preventDefault();
+                  }}
                   onDrop={(event) => {
                     event.preventDefault();
+                    const source = draggedFile(event.dataTransfer);
+                    if (source) {
+                      if (projectGit?.available)
+                        void moveDrawing(source, project.id);
+                      return;
+                    }
                     const moving = event.dataTransfer.getData("text/plain");
                     const ids = projects.map((item) => item.id);
                     const from = ids.indexOf(moving);
@@ -1608,13 +2232,24 @@ export function App() {
                     onKeyDown={onProjectTreeKeyDown}
                   >
                     <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
+                    <Icon name="folder" />
                     {project.name}
                     {project.available ? "" : " (unavailable)"}
                     {projectGit && (
-                      <span className="project-git-context">
-                        {projectGit.available
-                          ? (projectGit.branch ?? "Detached HEAD")
-                          : "Not Git"}
+                      <span
+                        className="project-git-context"
+                        title={
+                          projectGit.available
+                            ? `Git branch: ${projectGit.branch ?? "Detached HEAD"}`
+                            : "Not a Git repository"
+                        }
+                        aria-label={
+                          projectGit.available
+                            ? `Git branch: ${projectGit.branch ?? "Detached HEAD"}`
+                            : "Not a Git repository"
+                        }
+                      >
+                        {projectGit.available ? "Git" : "No Git"}
                       </span>
                     )}
                   </button>
@@ -1662,7 +2297,10 @@ export function App() {
                     <button
                       type="button"
                       className="text-button"
-                      onClick={() => void removeProject(project)}
+                      onClick={() => {
+                        setDialogError("");
+                        setRemoveTarget(project);
+                      }}
                     >
                       Remove
                     </button>
@@ -1702,6 +2340,14 @@ export function App() {
             icon="licenses"
             onClick={() => setLicenses(true)}
           />
+          <IconButton
+            id="trash-command"
+            icon="trash"
+            onClick={() => {
+              setDialogError("");
+              setTrashOpen(true);
+            }}
+          />
         </div>
         <div className="expanded-only status" role="status">
           {status}
@@ -1731,6 +2377,234 @@ export function App() {
             <h1>Local drawings, normal files.</h1>
             <button onClick={() => void newDraft()}>Create a drawing</button>
           </div>
+        )}
+        {renameTarget && (
+          <Modal
+            labelledBy="rename-dialog-title"
+            onClose={() => setRenameTarget(undefined)}
+            restoreFocusId={`rename-${fileRowId(renameTarget.projectId, renameTarget.path)}`}
+          >
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void renameFile();
+              }}
+            >
+              <h2 id="rename-dialog-title">Rename drawing</h2>
+              <label>
+                Project-relative filename
+                <input
+                  required
+                  value={renamePath}
+                  onChange={(event) => setRenamePath(event.target.value)}
+                />
+              </label>
+              <p>Existing files are protected.</p>
+              {dialogError && (
+                <p className="inline-error" role="alert">
+                  {dialogError}
+                </p>
+              )}
+              <button type="submit">Rename</button>
+              <button type="button" onClick={() => setRenameTarget(undefined)}>
+                Cancel
+              </button>
+            </form>
+          </Modal>
+        )}
+        {deleteTarget && (
+          <Modal
+            labelledBy="delete-dialog-title"
+            onClose={() => setDeleteTarget(undefined)}
+            restoreFocusId={deleteTarget.focusId ?? "trash-command"}
+          >
+            <div>
+              <h2 id="delete-dialog-title">Move drawing to Trash?</h2>
+              <p>
+                <strong>{deleteTarget.name}</strong> can be restored from
+                draw-local’s local Trash.
+              </p>
+              {dialogError && (
+                <p className="inline-error" role="alert">
+                  {dialogError}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => void deleteDrawing(deleteTarget)}
+              >
+                Move to Trash
+              </button>
+              <button type="button" onClick={() => setDeleteTarget(undefined)}>
+                Cancel
+              </button>
+            </div>
+          </Modal>
+        )}
+        {removeTarget && (
+          <Modal
+            labelledBy="remove-project-title"
+            onClose={() => setRemoveTarget(undefined)}
+            restoreFocusId="browse-folders"
+          >
+            <div>
+              <h2 id="remove-project-title">Remove project from workspace?</h2>
+              <p>
+                <strong>{removeTarget.name}</strong> will disappear from this
+                explorer. Its folder and drawings stay on disk.
+              </p>
+              <p className="project-path">{removeTarget.path}</p>
+              {dialogError && (
+                <p className="inline-error" role="alert">
+                  {dialogError}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => void removeProject(removeTarget)}
+              >
+                Remove from workspace
+              </button>
+              <button type="button" onClick={() => setRemoveTarget(undefined)}>
+                Cancel
+              </button>
+            </div>
+          </Modal>
+        )}
+        {promoteTarget && (
+          <Modal
+            labelledBy="promote-project-title"
+            onClose={() => setPromoteTarget(undefined)}
+            restoreFocusId="browse-folders"
+          >
+            <div>
+              <h2 id="promote-project-title">Make this the project root?</h2>
+              <p>
+                The explorer will show <strong>{promoteTarget.path}</strong> as
+                this project’s root. The parent folder and its files stay on
+                disk.
+              </p>
+              {dialogError && (
+                <p className="inline-error" role="alert">
+                  {dialogError}
+                </p>
+              )}
+              <button type="button" onClick={() => void promoteProject()}>
+                Make project root
+              </button>
+              <button type="button" onClick={() => setPromoteTarget(undefined)}>
+                Cancel
+              </button>
+            </div>
+          </Modal>
+        )}
+        {trashOpen && !restoreTarget && (
+          <Modal
+            labelledBy="trash-dialog-title"
+            onClose={() => setTrashOpen(false)}
+            restoreFocusId="trash-command"
+          >
+            <div className="trash-dialog">
+              <h2 id="trash-dialog-title">Trash</h2>
+              {dialogError && (
+                <p className="inline-error" role="alert">
+                  {dialogError}
+                </p>
+              )}
+              {trashItems.length === 0 ? (
+                <p>No drawings in Trash.</p>
+              ) : (
+                <ul className="trash-list">
+                  {trashItems.map((item) => (
+                    <li key={item.id}>
+                      <span>
+                        <strong>{item.name}</strong>
+                        <small>
+                          {item.kind === "file" ? item.path : "Draft"} ·{" "}
+                          {new Date(item.deletedAt).toLocaleString()}
+                        </small>
+                      </span>
+                      <RowAction
+                        icon="restore"
+                        label={`Restore ${item.name}`}
+                        onClick={() => void restoreDrawing(item)}
+                      />
+                      {item.kind === "file" && (
+                        <button
+                          className="text-button"
+                          type="button"
+                          onClick={() => beginRestoreElsewhere(item)}
+                        >
+                          Restore elsewhere
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <button type="button" onClick={() => setTrashOpen(false)}>
+                Close
+              </button>
+            </div>
+          </Modal>
+        )}
+        {restoreTarget && (
+          <Modal
+            labelledBy="restore-elsewhere-title"
+            onClose={() => setRestoreTarget(undefined)}
+            restoreFocusId="trash-command"
+          >
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (restoreProject && restorePath)
+                  void restoreDrawing(restoreTarget, {
+                    projectId: restoreProject,
+                    path: restorePath,
+                  });
+              }}
+            >
+              <h2 id="restore-elsewhere-title">Restore drawing elsewhere</h2>
+              <p>
+                Choose a registered project and an unused filename for{" "}
+                <strong>{restoreTarget.name}</strong>.
+              </p>
+              <label>
+                Project
+                <select
+                  value={restoreProject}
+                  onChange={(event) => setRestoreProject(event.target.value)}
+                >
+                  {projects
+                    .filter((project) => project.available)
+                    .map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label>
+                Project-relative filename
+                <input
+                  required
+                  value={restorePath}
+                  onChange={(event) => setRestorePath(event.target.value)}
+                />
+              </label>
+              {dialogError && (
+                <p className="inline-error" role="alert">
+                  {dialogError}
+                </p>
+              )}
+              <button type="submit" disabled={!restoreProject}>
+                Restore
+              </button>
+              <button type="button" onClick={() => setRestoreTarget(undefined)}>
+                Cancel
+              </button>
+            </form>
+          </Modal>
         )}
         {destination && (
           <Modal
@@ -1801,13 +2675,15 @@ export function App() {
                     setDirectory({ path: event.target.value, entries: [] });
                     setResolvedDirectoryPath(undefined);
                   }}
-                  onBlur={() => void resolveTypedDirectory()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void resolveTypedDirectory();
+                    }
+                  }}
                   placeholder="/absolute/path"
                 />
               </label>
-              <p className="selected-path" title={directory?.path}>
-                {directory?.path}
-              </p>
               <label>
                 Filter discovered folders
                 <input
@@ -1826,18 +2702,18 @@ export function App() {
                   Up
                 </button>
                 <button onClick={() => void resolveTypedDirectory()}>
-                  Resolve path
+                  Go to path
                 </button>
               </div>
               <div className="folder-list" role="tree" aria-label="Folder tree">
-                {pickerRoots.map((root) =>
-                  renderPickerNode(
-                    root,
-                    root === directory?.path
-                      ? root
-                      : (root.split("/").filter(Boolean).at(-1) ?? root),
-                  ),
-                )}
+                {pickerRoots.map((root) => (
+                  <div className="picker-root" key={root} role="presentation">
+                    <div className="picker-root-label" aria-hidden="true">
+                      {pickerRootLabels[root]}
+                    </div>
+                    {renderPickerNode(root, root)}
+                  </div>
+                ))}
               </div>
               {pickerSearch &&
                 !pickerRoots.some((root) =>
@@ -1846,6 +2722,11 @@ export function App() {
                     pickerSearch.trim().toLocaleLowerCase(),
                   ),
                 ) && <p>Only discovered folders are searched.</p>}
+              {pickerError && (
+                <p className="inline-error" role="alert">
+                  {pickerError}
+                </p>
+              )}
               <button
                 disabled={
                   !directory ||

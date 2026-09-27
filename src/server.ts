@@ -48,6 +48,7 @@ const file = (req: express.Request) =>
 app.get("/api/config", (_req, res) =>
   res.json({
     root: workspace.root,
+    launchDirectory: process.cwd(),
     gitWriteEnabled: workspace.gitWriteEnabled,
   }),
 );
@@ -94,6 +95,17 @@ app.delete(
   route(async (req, res) => {
     await workspace.removeProject(String(req.params.id));
     res.status(204).end();
+  }),
+);
+app.post(
+  "/api/projects/:id/promote",
+  route(async (req, res) => {
+    res.json(
+      await workspace.promoteProjectRoot(
+        String(req.params.id),
+        String(req.body.path ?? ""),
+      ),
+    );
   }),
 );
 app.get(
@@ -174,6 +186,32 @@ app.delete(
   }),
 );
 app.post(
+  "/api/project/trash",
+  route(async (req, res) => {
+    res.json(
+      await workspace.trashProjectFile(
+        id(req),
+        String(req.body.path ?? ""),
+        String(req.body.revision ?? ""),
+      ),
+    );
+  }),
+);
+app.post(
+  "/api/project/move",
+  route(async (req, res) => {
+    res.json(
+      await workspace.moveProjectFile(
+        String(req.body.fromProjectId ?? ""),
+        String(req.body.fromPath ?? ""),
+        String(req.body.toProjectId ?? ""),
+        String(req.body.toDirectory ?? ""),
+        String(req.body.revision ?? ""),
+      ),
+    );
+  }),
+);
+app.post(
   "/api/project/rename",
   route(async (req, res) => {
     res.json(
@@ -227,6 +265,36 @@ app.put(
         typeof req.body.revision === "string" ? req.body.revision : undefined,
       ),
     );
+  }),
+);
+app.post(
+  "/api/draft/:id/trash",
+  route(async (req, res) => {
+    res.json(
+      await workspace.trashDraft(
+        String(req.params.id),
+        String(req.body.revision ?? ""),
+      ),
+    );
+  }),
+);
+app.get(
+  "/api/trash",
+  route(async (_req, res) => {
+    res.json(await workspace.listTrash());
+  }),
+);
+app.post(
+  "/api/trash/:id/restore",
+  route(async (req, res) => {
+    const destination =
+      req.body?.projectId || req.body?.path
+        ? {
+            projectId: String(req.body.projectId ?? ""),
+            path: String(req.body.path ?? ""),
+          }
+        : undefined;
+    res.json(await workspace.restoreTrash(String(req.params.id), destination));
   }),
 );
 app.post(

@@ -1114,3 +1114,255 @@ test("typed directory resolution canonicalizes an explicit path", async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("drawing themes and nested Git roots are visible in lazy entries", async () => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-entry-ui-"));
+  try {
+    const nested = path.join(base, "nested");
+    const sibling = path.join(base, "sibling");
+    await mkdir(nested);
+    await mkdir(sibling);
+    await git("git", ["init", nested]);
+    const ws = new Workspace(base, isolated(base));
+    await ws.init();
+    const secondProject = await ws.registerProject(sibling);
+    await ws.writeProjectFile("default", "dark.excalidraw", {
+      ...doc,
+      appState: { theme: "dark", futureField: true },
+    });
+    await ws.writeProjectFile("default", "unset.excalidraw", doc);
+    const entries = await ws.listProjectEntries("default");
+    assert.equal(entries.find((item) => item.path === "nested")?.gitRoot, true);
+    assert.equal(
+      entries.find((item) => item.path === "dark.excalidraw")?.theme,
+      "dark",
+    );
+    assert.equal(
+      entries.find((item) => item.path === "unset.excalidraw")?.theme,
+      undefined,
+    );
+    await assert.rejects(
+      () => ws.promoteProjectRoot("default", "../nested"),
+      /Parent traversal/,
+    );
+    await assert.rejects(() => ws.promoteProjectRoot("default", "missing"));
+    const promoted = await ws.promoteProjectRoot("default", "nested");
+    assert.equal(promoted.path, nested);
+    assert.equal(promoted.id, "default");
+    assert.deepEqual(
+      (await ws.listProjects()).map((project) => project.id),
+      ["default", secondProject.id],
+    );
+    await assert.rejects(
+      () => ws.readProjectFile("default", "../dark.excalidraw"),
+      /Parent traversal/,
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("trash protects revisions and restores without replacing another file", async () => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-trash-"));
+  try {
+    const ws = new Workspace(base, isolated(base));
+    await ws.init();
+    const info = await ws.createProjectFile("default", "drawing.excalidraw", {
+      ...doc,
+      appState: { theme: "light", unknown: { keep: 1 } },
+    });
+    await assert.rejects(
+      () => ws.trashProjectFile("default", info.path, "stale"),
+      /changed/,
+    );
+    const trashed = await ws.trashProjectFile(
+      "default",
+      info.path,
+      info.revision,
+    );
+    await assert.rejects(() => ws.readProjectFile("default", info.path));
+    assert.equal((await ws.listTrash()).length, 1);
+    await ws.createProjectFile("default", info.path, doc);
+    await assert.rejects(() => ws.restoreTrash(trashed.id), /already exists/);
+    await ws.renameProjectFile("default", info.path, "other.excalidraw");
+    await ws.restoreTrash(trashed.id);
+    assert.deepEqual(
+      (await ws.readProjectFile("default", info.path)).document,
+      { ...doc, appState: { theme: "light", unknown: { keep: 1 } } },
+    );
+    assert.equal((await ws.listTrash()).length, 0);
+    const draft = await ws.createDraft(doc);
+    const deletedDraft = await ws.trashDraft(draft.id, draft.revision);
+    await assert.rejects(() => ws.readDraft(draft.id));
+    await ws.restoreTrash(deletedDraft.id);
+    assert.deepEqual((await ws.readDraft(draft.id)).document, doc);
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("moving to a nested Git root is exclusive and preserves source on failure", async () => {
+  const base = await mkdtemp(path.join(os.tmpdir(), "draw-local-move-"));
+  try {
+    const nested = path.join(base, "nested");
+    await mkdir(nested);
+    await git("git", ["init", nested]);
+    const ws = new Workspace(base, isolated(base));
+    await ws.init();
+    const source = await ws.createProjectFile(
+      "default",
+      "drawing.excalidraw",
+      doc,
+    );
+    await ws.createProjectFile("default", "nested/drawing.excalidraw", {
+      ...doc,
+      elements: [{ id: "existing" }],
+    });
+    await assert.rejects(
+      () =>
+        ws.moveProjectFile(
+          "default",
+          source.path,
+          "default",
+          "nested",
+          source.revision,
+        ),
+      /already exists/,
+    );
+    assert.deepEqual(
+      (await ws.readProjectFile("default", source.path)).document,
+      doc,
+    );
+    await ws.renameProjectFile(
+      "default",
+      "nested/drawing.excalidraw",
+      "nested/other.excalidraw",
+    );
+    await assert.rejects(
+      () =>
+        ws.moveProjectFile(
+          "default",
+          "../drawing.excalidraw",
+          "default",
+          "nested",
+          source.revision,
+        ),
+      /Parent traversal/,
+    );
+    await assert.rejects(
+      () =>
+        ws.moveProjectFile(
+          "default",
+          source.path,
+          "default",
+          "../nested",
+          source.revision,
+        ),
+      /Parent traversal/,
+    );
+    const moved = await ws.moveProjectFile(
+      "default",
+      source.path,
+      "default",
+      "nested",
+      source.revision,
+    );
+    assert.equal(moved.path, "nested/drawing.excalidraw");
+    assert.deepEqual(
+      (await ws.readProjectFile("default", moved.path)).document,
+      doc,
+    );
+    await assert.rejects(() => ws.readProjectFile("default", source.path));
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("trash can restore into a new registered root after project removal", async () => {
+  const base = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-trash-relocate-"),
+  );
+  const second = path.join(base, "second");
+  await mkdir(second);
+  try {
+    const ws = new Workspace(base, isolated(base));
+    await ws.init();
+    const info = await ws.createProjectFile(
+      "default",
+      "original.excalidraw",
+      doc,
+    );
+    const trashed = await ws.trashProjectFile(
+      "default",
+      info.path,
+      info.revision,
+    );
+    await ws.removeProject("default");
+    const project = await ws.registerProject(second);
+    await assert.rejects(() => ws.restoreTrash(trashed.id), /Unknown project/);
+    await assert.rejects(
+      () =>
+        ws.restoreTrash(trashed.id, {
+          projectId: project.id,
+          path: "../escape.excalidraw",
+        }),
+      /Parent traversal/,
+    );
+    await assert.rejects(
+      () =>
+        ws.restoreTrash(trashed.id, {
+          projectId: project.id,
+          path: "wrong.excalidrawlib",
+        }),
+      /original file extension/,
+    );
+    const restored = await ws.restoreTrash(trashed.id, {
+      projectId: project.id,
+      path: "new.excalidraw",
+    });
+    assert.equal(restored.path, "new.excalidraw");
+    assert.deepEqual(
+      (await ws.readProjectFile(project.id, "new.excalidraw")).document,
+      doc,
+    );
+    assert.equal((await ws.listTrash()).length, 0);
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("moving a drawing to another filesystem keeps exact bytes", async (context) => {
+  if (process.platform !== "linux") return context.skip("Uses Linux tmpfs");
+  const base = await mkdtemp(
+    path.join(os.tmpdir(), "draw-local-move-cross-fs-"),
+  );
+  const other = await mkdtemp("/dev/shm/draw-local-move-cross-fs-");
+  try {
+    if ((await stat(base)).dev === (await stat(other)).dev)
+      return context.skip("No second filesystem available");
+    await git("git", ["init", other]);
+    const ws = new Workspace(base, isolated(base));
+    await ws.init();
+    const project = await ws.registerProject(other);
+    const original = `${JSON.stringify({ ...doc, appState: { future: { preserve: true } } })}\n`;
+    await writeFile(path.join(base, "source.excalidraw"), original);
+    const source = (await ws.listProjectEntries("default")).find(
+      (entry) => entry.path === "source.excalidraw",
+    )!;
+    await ws.moveProjectFile(
+      "default",
+      source.path,
+      project.id,
+      "",
+      source.revision!,
+    );
+    assert.equal(
+      await readFile(path.join(other, "source.excalidraw"), "utf8"),
+      original,
+    );
+    await assert.rejects(() => readFile(path.join(base, "source.excalidraw")));
+  } finally {
+    await rm(base, { recursive: true, force: true });
+    await rm(other, { recursive: true, force: true });
+  }
+});

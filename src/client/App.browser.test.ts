@@ -232,7 +232,10 @@ test("an external edit creates a recoverable draft without overwriting the proje
   expect(
     (JSON.parse(await readFile(target, "utf8")) as typeof drawing).appState,
   ).toEqual({ external: true });
-  await page.getByRole("button", { name: /Untitled-/ }).click();
+  await page
+    .locator(".draft-row button.file")
+    .filter({ hasText: /Untitled-/ })
+    .click();
   await expect(page).toHaveURL(new RegExp(`draft=${id}`));
 });
 
@@ -302,14 +305,16 @@ test("Ctrl+Alt+N is suppressed in a dialog and editable control", async ({
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "New", exact: true }).click();
-  await page.getByRole("button", { name: "Untitled draft" }).click();
+  await page
+    .getByRole("button", { name: "Untitled draft", exact: true })
+    .click();
   await expect(page.locator(".excalidraw")).toBeVisible();
   await page.keyboard.press("Control+s");
   const filename = page.getByRole("textbox", { name: "Filename" });
   await filename.focus();
   await page.keyboard.press("Control+Alt+N");
   await expect(
-    page.getByRole("button", { name: "Untitled draft" }),
+    page.getByRole("button", { name: "Untitled draft", exact: true }),
   ).toHaveCount(1);
   await expect(
     page.getByRole("heading", { name: "Save drawing" }),
@@ -319,7 +324,9 @@ test("Ctrl+Alt+N is suppressed in a dialog and editable control", async ({
 test("Save does not reset an active first-save dialog", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "New", exact: true }).click();
-  await page.getByRole("button", { name: "Untitled draft" }).click();
+  await page
+    .getByRole("button", { name: "Untitled draft", exact: true })
+    .click();
   await page.keyboard.press("Control+s");
   const filename = page.getByRole("textbox", { name: "Filename" });
   await filename.fill("custom.excalidraw");
@@ -339,7 +346,9 @@ test("first Save recovers from a collision and Save As keeps both files", async 
   );
   expect(existing.ok()).toBeTruthy();
   await page.getByRole("button", { name: "New", exact: true }).click();
-  await page.getByRole("button", { name: "Untitled draft" }).click();
+  await page
+    .getByRole("button", { name: "Untitled draft", exact: true })
+    .click();
   await page.keyboard.press("Control+s");
   const dialog = page.getByRole("dialog", { name: "Save drawing" });
   const filename = dialog.getByRole("textbox", { name: "Filename" });
@@ -512,7 +521,9 @@ test("library callback retains the active draft identity and window target", asy
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "New", exact: true }).click();
-  await page.getByRole("button", { name: "Untitled draft" }).click();
+  await page
+    .getByRole("button", { name: "Untitled draft", exact: true })
+    .click();
   await expect(page.locator(".excalidraw")).toBeVisible();
   const editorUrl = page.url();
   await expect
@@ -547,4 +558,296 @@ test("library callback retains the active draft identity and window target", asy
     .toContain("draft=");
   await expect.poll(() => libraryFetched).toBe(true);
   await expect.poll(() => page.evaluate(() => location.hash)).toBe("");
+});
+
+test("drawing row actions support rename, Delete, bypass, and restore", async ({
+  page,
+}) => {
+  const created = await page.request.post(
+    "/api/project/file?projectId=default&path=light.excalidraw",
+    {
+      data: { document: { ...drawing, appState: { theme: "light" } } },
+    },
+  );
+  expect(created.ok()).toBeTruthy();
+  await page.goto("/");
+  await page
+    .locator('button[data-project-id="default"][data-project-path=""]')
+    .click();
+  const row = page
+    .locator(".drawing-row")
+    .filter({ hasText: "light.excalidraw" });
+  await expect(row.locator('.theme-badge[title="Light theme"]')).toBeVisible();
+  await row.locator("button.file").click();
+  await expect(page.getByRole("button", { name: "Save As" })).toBeEnabled();
+  await row.getByRole("button", { name: "Rename light.excalidraw" }).click();
+  const rename = page.getByRole("dialog", { name: "Rename drawing" });
+  await rename
+    .getByRole("textbox", { name: "Project-relative filename" })
+    .fill("renamed.excalidraw");
+  await rename.getByRole("button", { name: "Rename", exact: true }).click();
+  await expect(rename).toHaveCount(0);
+  const renamed = page
+    .locator(".drawing-row")
+    .filter({ hasText: "renamed.excalidraw" });
+  await expect(renamed).toBeVisible();
+  await renamed.locator("button.file").focus();
+  await page.keyboard.press("Delete");
+  const confirm = page.getByRole("dialog", { name: "Move drawing to Trash?" });
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole("button", { name: "Cancel" }).click();
+  await renamed.locator("button.file").focus();
+  await page.keyboard.press("Shift+Delete");
+  await expect(confirm).toHaveCount(0);
+  await expect(renamed).toHaveCount(0);
+  await page.getByRole("button", { name: "Trash", exact: true }).click();
+  const trash = page.getByRole("dialog", { name: "Trash" });
+  await expect(trash).toContainText("renamed.excalidraw");
+  await trash
+    .getByRole("button", { name: "Restore renamed.excalidraw" })
+    .click();
+  await expect(renamed).toBeVisible();
+});
+
+test("Delete keeps an externally changed drawing and explains the conflict", async ({
+  page,
+}) => {
+  const target = path.join(testRoot, "external.excalidraw");
+  const created = await page.request.post(
+    "/api/project/file?projectId=default&path=external.excalidraw",
+    {
+      data: { document: drawing },
+    },
+  );
+  expect(created.ok()).toBeTruthy();
+  await page.goto("/");
+  await page
+    .locator('button[data-project-id="default"][data-project-path=""]')
+    .click();
+  const row = page
+    .locator(".drawing-row")
+    .filter({ hasText: "external.excalidraw" });
+  await row.locator("button.file").click();
+  await writeFile(
+    target,
+    JSON.stringify({ ...drawing, appState: { external: true } }),
+  );
+  await row.getByRole("button", { name: "Delete external.excalidraw" }).click();
+  const dialog = page.getByRole("dialog", { name: "Move drawing to Trash?" });
+  await dialog.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(dialog.getByRole("alert")).toContainText(/changed|conflict/i);
+  expect(
+    (JSON.parse(await readFile(target, "utf8")) as typeof drawing).appState,
+  ).toEqual({ external: true });
+});
+
+test("Trash restores to another registered project after the original is removed", async ({
+  page,
+}) => {
+  const secondRoot = "/tmp/draw-local-playwright/second-project";
+  await mkdir(secondRoot, { recursive: true });
+  const registered = await page.request.post("/api/projects", {
+    data: { path: secondRoot, name: "Second" },
+  });
+  const second = await registered.json();
+  const created = await page.request.post(
+    "/api/project/file?projectId=default&path=relocate.excalidraw",
+    { data: { document: drawing } },
+  );
+  expect(created.ok()).toBeTruthy();
+  await page.goto("/");
+  await page
+    .locator('button[data-project-id="default"][data-project-path=""]')
+    .click();
+  const row = page
+    .locator(".drawing-row")
+    .filter({ hasText: "relocate.excalidraw" });
+  await row.getByRole("button", { name: "Delete relocate.excalidraw" }).click();
+  await page
+    .getByRole("dialog", { name: "Move drawing to Trash?" })
+    .getByRole("button", { name: "Move to Trash" })
+    .click();
+  await expect(row).toHaveCount(0);
+  const root = page.locator(".project-root").filter({
+    has: page.locator(
+      'button[data-project-id="default"][data-project-path=""]',
+    ),
+  });
+  await root.getByRole("button", { name: "Remove", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Remove project from workspace?" })
+    .getByRole("button", { name: "Remove from workspace" })
+    .click();
+  await page.getByRole("button", { name: "Trash", exact: true }).click();
+  await page.getByRole("button", { name: "Restore elsewhere" }).click();
+  const restore = page.getByRole("dialog", {
+    name: "Restore drawing elsewhere",
+  });
+  await restore
+    .getByRole("combobox", { name: "Project" })
+    .selectOption(second.id);
+  await restore
+    .getByRole("textbox", { name: "Project-relative filename" })
+    .fill("relocated.excalidraw");
+  await restore.getByRole("button", { name: "Restore", exact: true }).click();
+  await expect(restore).toHaveCount(0);
+  expect(
+    (await savedElements(page, second.id, "relocated.excalidraw")).length,
+  ).toBe(0);
+});
+
+test("macOS deletion shortcut is limited to a focused drawing row", async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    Object.defineProperty(navigator, "platform", {
+      configurable: true,
+      value: "MacIntel",
+    }),
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  const deletedId = new URL(page.url()).searchParams.get("draft")!;
+  const draft = page.getByRole("button", {
+    name: "Untitled draft",
+    exact: true,
+  });
+  await draft.focus();
+  await page.keyboard.press("Meta+Alt+Backspace");
+  await expect(
+    page.getByRole("dialog", { name: "Move drawing to Trash?" }),
+  ).toHaveCount(0);
+  await expect
+    .poll(async () =>
+      (await page.request.get(`/api/draft/${deletedId}`)).status(),
+    )
+    .toBe(400);
+  await expect
+    .poll(
+      async () => (await (await page.request.get("/api/trash")).json()).length,
+    )
+    .toBe(1);
+});
+
+test("folder picker click expands a directory and project removal uses a modal", async ({
+  page,
+}) => {
+  await mkdir(path.join(testRoot, "child-folder"), { recursive: true });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Browse folders" }).click();
+  const picker = page.getByRole("dialog", { name: "Choose project folder" });
+  await expect(picker.locator(".selected-path")).toHaveCount(0);
+  await picker.locator(`[data-picker-path="${testRoot}"]`).click();
+  await expect(
+    picker.locator(`[data-picker-path="${testRoot}/child-folder"]`),
+  ).toBeVisible();
+  await picker.getByRole("button", { name: "Cancel" }).click();
+  await page
+    .locator(".project-root")
+    .first()
+    .getByRole("button", { name: "Remove", exact: true })
+    .click();
+  const remove = page.getByRole("dialog", {
+    name: "Remove project from workspace?",
+  });
+  await expect(remove).toContainText("stay on disk");
+  await remove.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.locator(".project-root")).toHaveCount(1);
+  await writeFile(
+    path.join(testRoot, "keep.excalidraw"),
+    JSON.stringify(drawing),
+  );
+  await page
+    .locator(".project-root")
+    .first()
+    .getByRole("button", { name: "Remove", exact: true })
+    .click();
+  await remove.getByRole("button", { name: "Remove from workspace" }).click();
+  await expect(page.locator(".project-root")).toHaveCount(0);
+  expect(
+    (await readFile(path.join(testRoot, "keep.excalidraw"), "utf8")).length,
+  ).toBeGreaterThan(0);
+});
+
+test("nested Git root accepts a drawing drop and can become the project root", async ({
+  page,
+}) => {
+  const nested = path.join(testRoot, "nested-repo");
+  await mkdir(nested, { recursive: true });
+  await git("git", ["init", nested]);
+  const created = await page.request.post(
+    "/api/project/file?projectId=default&path=move-me.excalidraw",
+    {
+      data: { document: drawing },
+    },
+  );
+  expect(created.ok()).toBeTruthy();
+  await page.goto("/");
+  await page
+    .locator('button[data-project-id="default"][data-project-path=""]')
+    .click();
+  const folder = page
+    .locator(".directory-row.git-root")
+    .filter({ hasText: "nested-repo" });
+  await expect(folder).toContainText("Git");
+  await projectFile(page, "default", "move-me.excalidraw").dragTo(
+    folder.locator(".tree-button"),
+  );
+  await folder.locator(".tree-button").click();
+  await expect(
+    folder.locator("button.file").filter({ hasText: "move-me.excalidraw" }),
+  ).toBeVisible();
+  await folder
+    .locator("button.file")
+    .filter({ hasText: "move-me.excalidraw" })
+    .click();
+  await expect(page).toHaveURL(/file=nested-repo/);
+  await folder.getByRole("button", { name: "Make root" }).click();
+  const promote = page.getByRole("dialog", {
+    name: "Make this the project root?",
+  });
+  await promote.getByRole("button", { name: "Make project root" }).click();
+  await expect(promote).toHaveCount(0);
+  await expect(page).toHaveURL(/draft=/);
+  const projects = await page.request.get("/api/projects");
+  expect((await projects.json())[0].path).toBe(nested);
+});
+
+test("a collapsed Git project root accepts a drawing drop", async ({
+  page,
+}) => {
+  const secondRoot = "/tmp/draw-local-playwright/git-project";
+  await mkdir(secondRoot, { recursive: true });
+  await git("git", ["init", secondRoot]);
+  const registered = await page.request.post("/api/projects", {
+    data: { path: secondRoot, name: "Git project" },
+  });
+  const second = await registered.json();
+  const created = await page.request.post(
+    "/api/project/file?projectId=default&path=to-git.excalidraw",
+    { data: { document: drawing } },
+  );
+  expect(created.ok()).toBeTruthy();
+  await page.goto("/");
+  await page
+    .locator('button[data-project-id="default"][data-project-path=""]')
+    .click();
+  const destination = page.locator(".project-root").filter({
+    has: page.locator(
+      `button[data-project-id="${second.id}"][data-project-path=""]`,
+    ),
+  });
+  await expect(destination.locator(".project-git-context")).toHaveText("Git");
+  await projectFile(page, "default", "to-git.excalidraw").dragTo(
+    destination.locator(".tree-button"),
+  );
+  await expect
+    .poll(async () =>
+      (
+        await page.request.get(
+          `/api/project/file?projectId=${second.id}&path=to-git.excalidraw`,
+        )
+      ).status(),
+    )
+    .toBe(200);
 });

@@ -26,12 +26,27 @@ export type Project = {
   available: boolean;
   error?: string;
 };
-export type Draft = WorkspaceFile & { id: string; name?: string };
+export type Draft = WorkspaceFile & {
+  id: string;
+  name?: string;
+  theme?: "light" | "dark";
+};
 export type ProjectEntry = {
   name: string;
   path: string;
   kind: "directory" | "file";
   revision?: string;
+  theme?: "light" | "dark";
+  gitRoot?: boolean;
+};
+export type TrashEntry = {
+  id: string;
+  kind: "draft" | "file";
+  name: string;
+  projectId?: string;
+  path?: string;
+  deletedAt: string;
+  revision: string;
 };
 type StoredProject = Pick<Project, "id" | "path" | "name">;
 const json = (value: unknown) => JSON.stringify(value, null, 2) + "\n";
@@ -42,6 +57,7 @@ export class Workspace {
   readonly configPath: string;
   readonly draftsPath: string;
   readonly libraryPath: string;
+  readonly trashPath: string;
   private readonly locks = new Map<string, Promise<void>>();
   constructor(
     root = process.env.DRAW_LOCAL_ROOT ??
@@ -71,6 +87,7 @@ export class Workspace {
     this.libraryPath =
       options?.libraryPath ??
       path.join(path.dirname(this.draftsPath), "library.excalidrawlib");
+    this.trashPath = path.join(path.dirname(this.draftsPath), "trash");
   }
   async init() {
     await fs.mkdir(this.root, { recursive: true, mode: 0o700 });
@@ -79,6 +96,7 @@ export class Workspace {
       mode: 0o700,
     });
     await fs.mkdir(this.draftsPath, { recursive: true, mode: 0o700 });
+    await fs.mkdir(this.trashPath, { recursive: true, mode: 0o700 });
     try {
       await fs.access(this.configPath);
     } catch {
@@ -269,6 +287,23 @@ export class Workspace {
       throw error;
     }
   }
+  private async writeRawExclusive(target: string, contents: string) {
+    await fs.mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
+    const temp = path.join(
+      path.dirname(target),
+      `.${path.basename(target)}.tmp-${process.pid}-${randomUUID()}`,
+    );
+    try {
+      await fs.writeFile(temp, contents, { mode: 0o600, flag: "wx" });
+      await fs.link(temp, target);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EEXIST")
+        throw new Error("Destination already exists.");
+      throw error;
+    } finally {
+      await fs.unlink(temp).catch(() => {});
+    }
+  }
   private async canonicalDirectory(input: string) {
     if (!input || !path.isAbsolute(input))
       throw new Error("Directory path must be absolute.");
@@ -349,6 +384,40 @@ export class Workspace {
           "That directory is already registered as another project.",
         );
       const updated = { ...projects[index]!, path: canonical };
+      projects[index] = updated;
+      await this.saveRegistry(projects);
+      return { ...updated, available: true };
+    });
+  }
+  async promoteProjectRoot(id: string, relative: string) {
+    const root = await this.projectRoot(id);
+    const target = this.resolve(root, relative);
+    await this.assertNoSymlink(root, target);
+    if (!(await fs.stat(target)).isDirectory())
+      throw new Error("Project root must be a directory.");
+    const marker = await fs.lstat(path.join(target, ".git")).catch(() => null);
+    if (!marker || (!marker.isDirectory() && !marker.isFile()))
+      throw new Error("Selected folder is not a Git repository root.");
+    const canonical = await this.canonicalDirectory(target);
+    return this.withWorkspaceLock(`registry:${this.configPath}`, async () => {
+      const projects = await this.registry();
+      const index = projects.findIndex((project) => project.id === id);
+      if (index < 0) throw new Error("Unknown project.");
+      if (projects[index]!.path !== root)
+        throw new Error("Project root changed. Refresh and try again.");
+      if (
+        projects.some(
+          (project) => project.id !== id && project.path === canonical,
+        )
+      )
+        throw new Error(
+          "That directory is already registered as another project.",
+        );
+      const updated = {
+        ...projects[index]!,
+        path: canonical,
+        name: path.basename(canonical),
+      };
       projects[index] = updated;
       await this.saveRegistry(projects);
       return { ...updated, available: true };
@@ -498,6 +567,15 @@ export class Workspace {
   private revision(value: string) {
     return createHash("sha256").update(value).digest("hex");
   }
+  private documentTheme(contents: string): "light" | "dark" | undefined {
+    try {
+      const theme = (JSON.parse(contents) as { appState?: { theme?: unknown } })
+        .appState?.theme;
+      return theme === "light" || theme === "dark" ? theme : undefined;
+    } catch {
+      return undefined;
+    }
+  }
   private async info(root: string, relative: string): Promise<WorkspaceFile> {
     const target = this.resolve(root, relative);
     await this.assertNoSymlink(root, target);
@@ -557,17 +635,25 @@ export class Workspace {
         )
         .map(async (entry) => {
           const child = relative ? `${relative}/${entry.name}` : entry.name;
-          if (entry.isDirectory())
+          if (entry.isDirectory()) {
+            const gitRoot = await fs
+              .lstat(path.join(directory, entry.name, ".git"))
+              .then((stat) => stat.isDirectory() || stat.isFile())
+              .catch(() => false);
             return {
               name: entry.name,
               path: child,
               kind: "directory" as const,
+              gitRoot,
             };
+          }
+          const contents = await fs.readFile(this.resolve(root, child), "utf8");
           return {
             name: entry.name,
             path: child,
             kind: "file" as const,
-            revision: (await this.info(root, child)).revision,
+            revision: this.revision(contents),
+            theme: this.documentTheme(contents),
           };
         }),
     ).then((items) => items.sort((a, b) => a.name.localeCompare(b.name)));
@@ -668,14 +754,16 @@ export class Workspace {
   }
   private async draftInfo(
     relative: string,
-  ): Promise<WorkspaceFile & { name?: string }> {
+  ): Promise<WorkspaceFile & { name?: string; theme?: "light" | "dark" }> {
     const info = await this.info(this.draftsPath, relative);
     const value = JSON.parse(
       await fs.readFile(this.resolve(this.draftsPath, relative), "utf8"),
-    ) as { appState?: { name?: unknown } };
+    ) as { appState?: { name?: unknown; theme?: unknown } };
     const name = value.appState?.name;
+    const theme = value.appState?.theme;
     return {
       ...info,
+      ...(theme === "light" || theme === "dark" ? { theme } : {}),
       ...(typeof name === "string" && name.trim()
         ? { name: name.trim().slice(0, 100) }
         : {}),
@@ -865,6 +953,213 @@ export class Workspace {
   ) {
     await this.readProjectFile(fromId, from);
     return this.createProjectFile(toId, to, value);
+  }
+  private async trashSource(
+    root: string,
+    relative: string,
+    entry: Omit<TrashEntry, "id" | "deletedAt" | "revision">,
+    expectedRevision: string,
+  ) {
+    this.assertFile(relative);
+    const source = this.resolve(root, relative);
+    return this.withWorkspaceLock(`write:${source}`, async () => {
+      await this.assertNoSymlink(root, source);
+      const contents = await fs.readFile(source, "utf8");
+      const revision = this.revision(contents);
+      if (revision !== expectedRevision)
+        throw new Error("Drawing changed. Refresh it before deleting.");
+      const item: TrashEntry = {
+        ...entry,
+        id: randomUUID(),
+        deletedAt: new Date().toISOString(),
+        revision,
+      };
+      const data = path.join(this.trashPath, `${item.id}.excalidraw`);
+      const metadata = path.join(this.trashPath, `${item.id}.json`);
+      await this.writeRawExclusive(data, contents);
+      try {
+        await this.writeAtomic(metadata, { ...item, originalRoot: root }, true);
+      } catch (error) {
+        await fs.unlink(data).catch(() => {});
+        throw error;
+      }
+      const latest = await fs.readFile(source, "utf8");
+      if (this.revision(latest) !== revision)
+        throw new Error(
+          "Drawing changed during deletion. Both copies were kept; the earlier copy is in Trash.",
+        );
+      try {
+        await fs.unlink(source);
+      } catch {
+        throw new Error(
+          "Could not remove the source. Both copies were kept; the earlier copy is in Trash.",
+        );
+      }
+      return item;
+    });
+  }
+  async trashProjectFile(
+    id: string,
+    relative: string,
+    expectedRevision: string,
+  ) {
+    const root = await this.projectRoot(id);
+    return this.trashSource(
+      root,
+      relative,
+      {
+        kind: "file",
+        name: path.basename(relative),
+        projectId: id,
+        path: relative,
+      },
+      expectedRevision,
+    );
+  }
+  async trashDraft(id: string, expectedRevision: string) {
+    if (!/^[a-f0-9-]{36}$/i.test(id)) throw new Error("Invalid draft ID.");
+    return this.trashSource(
+      this.draftsPath,
+      `${id}.excalidraw`,
+      {
+        kind: "draft",
+        name: `Draft ${id.slice(0, 8)}`,
+        path: id,
+      },
+      expectedRevision,
+    );
+  }
+  async listTrash(): Promise<TrashEntry[]> {
+    await this.init();
+    const names = (await fs.readdir(this.trashPath)).filter((name) =>
+      /^[a-f0-9-]{36}\.json$/i.test(name),
+    );
+    const items = await Promise.all(
+      names.map(async (name) => {
+        const item = JSON.parse(
+          await fs.readFile(path.join(this.trashPath, name), "utf8"),
+        ) as TrashEntry;
+        return item.id === name.slice(0, -5) ? item : undefined;
+      }),
+    );
+    return items
+      .filter((item): item is TrashEntry => Boolean(item))
+      .sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
+  }
+  async restoreTrash(
+    id: string,
+    destination?: { projectId: string; path: string },
+  ) {
+    if (!/^[a-f0-9-]{36}$/i.test(id)) throw new Error("Invalid trash ID.");
+    const metadata = path.join(this.trashPath, `${id}.json`);
+    const item = JSON.parse(
+      await fs.readFile(metadata, "utf8"),
+    ) as TrashEntry & { originalRoot: string };
+    if (item.id !== id || !item.path || !item.originalRoot)
+      throw new Error("Invalid trash entry.");
+    if (destination && item.kind === "draft")
+      throw new Error("Drafts must be restored as drafts.");
+    const destinationProjectId = destination?.projectId ?? item.projectId;
+    const root =
+      item.kind === "draft"
+        ? this.draftsPath
+        : await this.projectRoot(destinationProjectId ?? "");
+    if (!destination && root !== item.originalRoot)
+      throw new Error(
+        "The original project root changed. Choose Restore elsewhere.",
+      );
+    const relative =
+      item.kind === "draft"
+        ? `${item.path}.excalidraw`
+        : (destination?.path ?? item.path);
+    this.assertFile(relative);
+    if (
+      item.kind === "file" &&
+      path.extname(relative).toLowerCase() !==
+        path.extname(item.path).toLowerCase()
+    )
+      throw new Error("Restore with the original file extension.");
+    const target = this.resolve(root, relative);
+    return this.withWorkspaceLock(`write:${target}`, async () => {
+      await this.assertNoSymlink(root, target);
+      const contents = await fs.readFile(
+        path.join(this.trashPath, `${id}.excalidraw`),
+        "utf8",
+      );
+      if (this.revision(contents) !== item.revision)
+        throw new Error("Trash copy changed and cannot be restored.");
+      await this.writeRawExclusive(target, contents);
+      try {
+        await fs.unlink(metadata);
+      } catch {
+        throw new Error(
+          "Restored file, but Trash cleanup failed. Both copies were kept.",
+        );
+      }
+      await fs
+        .unlink(path.join(this.trashPath, `${id}.excalidraw`))
+        .catch(() => {});
+      return item.kind === "file"
+        ? { ...item, projectId: destinationProjectId, path: relative }
+        : item;
+    });
+  }
+  async moveProjectFile(
+    fromId: string,
+    from: string,
+    toId: string,
+    toDirectory: string,
+    expectedRevision: string,
+  ) {
+    const fromRoot = await this.projectRoot(fromId);
+    const toRoot = await this.projectRoot(toId);
+    this.assertFile(from);
+    const source = this.resolve(fromRoot, from);
+    const directory = toDirectory ? this.resolve(toRoot, toDirectory) : toRoot;
+    const filename = path.posix.basename(from.replaceAll("\\", "/"));
+    const relative = toDirectory
+      ? `${toDirectory.replaceAll("\\", "/")}/${filename}`
+      : filename;
+    this.assertFile(relative);
+    const target = this.resolve(toRoot, relative);
+    if (source === target)
+      throw new Error("Drawing is already in this folder.");
+    await this.assertNoSymlink(toRoot, directory);
+    if (!(await fs.stat(directory)).isDirectory())
+      throw new Error("Destination is not a directory.");
+    if (toDirectory) {
+      const marker = await fs
+        .lstat(path.join(directory, ".git"))
+        .catch(() => null);
+      if (!marker || (!marker.isDirectory() && !marker.isFile()))
+        throw new Error("Drop onto a Git repository root.");
+    }
+    const repo = await this.git(
+      ["rev-parse", "--show-toplevel"],
+      directory,
+    ).catch(() => undefined);
+    if (!repo) throw new Error("Destination is not in a Git repository.");
+    return this.withLocks([`write:${source}`, `write:${target}`], async () => {
+      await this.assertNoSymlink(fromRoot, source);
+      await this.assertNoSymlink(toRoot, target);
+      const contents = await fs.readFile(source, "utf8");
+      if (this.revision(contents) !== expectedRevision)
+        throw new Error("Drawing changed. Refresh it before moving.");
+      await this.writeRawExclusive(target, contents);
+      const latest = await fs.readFile(source, "utf8");
+      if (this.revision(latest) !== expectedRevision)
+        throw new Error(
+          "Drawing changed during move. Both copies were kept; review the destination before deleting either copy.",
+        );
+      try {
+        await fs.unlink(source);
+      } catch {
+        throw new Error(
+          "Could not remove the source. Both copies were kept; review the destination before deleting either copy.",
+        );
+      }
+      return { path: relative, revision: expectedRevision };
+    });
   }
   async removeProjectFile(
     id: string,

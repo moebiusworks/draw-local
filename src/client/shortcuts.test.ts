@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { commands } from "./shortcuts";
+import { commands, drawingDeletionAction } from "./shortcuts";
 
 const event = (values: Partial<KeyboardEvent>) =>
   ({
@@ -96,4 +96,43 @@ test("registry uses physical Alt chords and platform primary modifiers", () => {
       "Save must not overlap Excalidraw Save As",
     );
   }
+});
+
+test("drawing deletion chords are scoped to tree handling on each platform", () => {
+  for (const value of ["mac", "other"] as const) {
+    assert.equal(
+      drawingDeletionAction(event({ key: "Delete" }), value),
+      "confirm",
+    );
+    assert.equal(
+      drawingDeletionAction(event({ key: "Delete", shiftKey: true }), value),
+      "bypass",
+    );
+    assert.equal(
+      drawingDeletionAction(event({ key: "Delete", ctrlKey: true }), value),
+      undefined,
+    );
+  }
+  assert.equal(
+    drawingDeletionAction(event({ key: "Backspace" }), "mac"),
+    "confirm",
+  );
+  assert.equal(
+    drawingDeletionAction(
+      event({ key: "Backspace", metaKey: true, altKey: true }),
+      "mac",
+    ),
+    "bypass",
+  );
+  assert.equal(
+    drawingDeletionAction(
+      event({ key: "Delete", metaKey: true, altKey: true }),
+      "mac",
+    ),
+    "bypass",
+  );
+  assert.equal(
+    drawingDeletionAction(event({ key: "Backspace" }), "other"),
+    undefined,
+  );
 });

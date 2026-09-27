@@ -187,18 +187,6 @@ select {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
-.action-separator {
-  width: 1px;
-  margin: 3px;
-  background: var(--border);
-}
-.project {
-  display: grid;
-  gap: 6px;
-  padding: 10px;
-  border-bottom: 1px solid var(--border);
-}
-.section-heading,
 .files strong {
   display: block;
   margin: 0;
@@ -208,7 +196,6 @@ select {
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.project select,
 .dialog input,
 .dialog select {
   width: 100%;
@@ -240,11 +227,14 @@ select {
 }
 .git-refresh {
   float: right;
-  min-width: auto;
-  min-height: 20px;
-  padding: 1px 4px;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 2px;
   color: var(--muted);
-  font-size: 10px;
+}
+.git-refresh .icon {
+  width: 15px;
+  height: 15px;
 }
 .files {
   flex: 1;
@@ -255,6 +245,10 @@ select {
   margin: 10px 8px 5px;
 }
 .file {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
   width: 100%;
   overflow: hidden;
   border: 0;
@@ -267,6 +261,37 @@ select {
   white-space: nowrap;
   cursor: pointer;
 }
+.drawing-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-width: 0;
+}
+.drawing-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.drawing-actions {
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+}
+.row-action {
+  min-width: 26px;
+  min-height: 26px;
+}
+.row-action .icon,
+.theme-badge .icon {
+  width: 15px;
+  height: 15px;
+}
+.theme-badge {
+  display: inline-flex;
+  flex: none;
+  color: var(--muted);
+}
 .file:hover {
   background: var(--hover);
 }
@@ -278,6 +303,10 @@ select {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
 }
+.draft-row .drawing-actions {
+  grid-column: 2;
+  grid-row: 1;
+}
 .draft-row input {
   min-width: 0;
   margin: 2px;
@@ -286,16 +315,6 @@ select {
   border-radius: 5px;
   color: var(--text);
   background: var(--surface);
-}
-.draft-rename {
-  display: none;
-  min-width: auto;
-  padding: 4px 6px;
-  font-size: 11px;
-}
-.draft-row:hover .draft-rename,
-.draft-row:focus-within .draft-rename {
-  display: inline-flex;
 }
 .inline-error {
   grid-column: 1 / -1;
@@ -310,7 +329,9 @@ select {
   padding-left: 14px;
 }
 .tree-button {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 5px;
   width: 100%;
   overflow: hidden;
   border: 0;
@@ -322,6 +343,32 @@ select {
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
+}
+.tree-button .icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--muted);
+}
+.directory-row {
+  position: relative;
+}
+.directory-row > .tree-button {
+  padding-right: 68px;
+}
+.directory-row > .promote-button {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-height: 24px;
+  padding: 1px 4px;
+  font-size: 11px;
+}
+.git-root-label {
+  width: auto !important;
+  margin-left: auto;
+  color: var(--accent) !important;
+  font-size: 10px;
 }
 .tree-button:hover:not(:disabled) {
   background: var(--hover);
@@ -341,6 +388,18 @@ select {
 .project-root {
   border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
+.project-root > .tree-button {
+  min-width: 0;
+}
+.project-root > .tree-button .project-git-context {
+  flex: none;
+  width: auto;
+  min-width: 0;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  font-size: 10px;
+}
 .project-controls {
   display: flex;
   gap: 2px;
@@ -356,6 +415,40 @@ select {
   display: inline-flex;
   position: relative;
   width: 18px;
+  flex: none;
+  color: var(--muted);
+}
+.trash-dialog {
+  width: min(580px, calc(100% - 32px)) !important;
+}
+.trash-list {
+  max-height: 50vh;
+  overflow: auto;
+  padding: 0;
+  list-style: none;
+}
+.trash-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.trash-list li > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.trash-list li > .text-button {
+  flex: none;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+.trash-list small {
+  display: block;
   color: var(--muted);
 }
 .git-icon sup {
@@ -420,15 +513,32 @@ select {
 .dialog button {
   margin-right: 8px;
 }
-.selected-path {
-  overflow: hidden;
+.dialog form > button,
+.dialog > div > button,
+.folder-actions button {
+  padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  margin: 10px 0;
-  padding: 8px;
-  font-family: ui-monospace, monospace;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--text);
+  background: var(--surface);
+  cursor: pointer;
+}
+.dialog form > button:hover,
+.dialog > div > button:hover,
+.folder-actions button:hover {
+  background: var(--hover);
+}
+.dialog form > button:disabled,
+.dialog > div > button:disabled,
+.folder-actions button:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.dialog form > button[type="submit"],
+.folder-picker > button:first-of-type {
+  border-color: var(--accent);
+  color: var(--surface);
+  background: var(--accent);
 }
 .folder-actions {
   margin-bottom: 8px;
@@ -439,6 +549,17 @@ select {
   border: 1px solid var(--border);
   border-radius: 6px;
   margin: 8px 0 14px;
+}
+.picker-root + .picker-root {
+  border-top: 1px solid var(--border);
+}
+.picker-root-label {
+  padding: 7px 8px 2px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 .folder-list button {
   display: block;
@@ -452,6 +573,9 @@ select {
 }
 .folder-list button:hover {
   background: var(--hover);
+}
+.picker-tree-row[aria-selected="true"] > .tree-button {
+  background: var(--selected);
 }
 .license-viewer {
   width: min(900px, calc(100% - 32px)) !important;

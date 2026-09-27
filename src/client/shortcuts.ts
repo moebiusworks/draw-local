@@ -26,6 +26,42 @@ const physicalNumber = (event: KeyboardEvent, number: 0 | 1) =>
 export const platform = (): Platform =>
   /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? "mac" : "other";
 
+export const drawingDeletionAction = (
+  event: Pick<
+    KeyboardEvent,
+    "key" | "shiftKey" | "ctrlKey" | "metaKey" | "altKey"
+  >,
+  value: Platform,
+): "confirm" | "bypass" | undefined => {
+  if (
+    event.key === "Delete" &&
+    event.shiftKey &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.altKey
+  )
+    return "bypass";
+  if (
+    value === "mac" &&
+    (event.key === "Backspace" || event.key === "Delete") &&
+    event.metaKey &&
+    event.altKey &&
+    !event.ctrlKey &&
+    !event.shiftKey
+  )
+    return "bypass";
+  if (
+    (event.key === "Delete" ||
+      (value === "mac" && event.key === "Backspace")) &&
+    !event.shiftKey &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.altKey
+  )
+    return "confirm";
+  return undefined;
+};
+
 export const commands: Record<CommandId, Command> = {
   new: {
     id: "new",
