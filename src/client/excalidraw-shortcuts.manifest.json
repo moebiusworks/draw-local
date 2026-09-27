@@ -1,0 +1,16 @@
+{
+  "package": "@excalidraw/excalidraw",
+  "version": "0.18.1",
+  "source": "../../actions/shortcuts.ts",
+  "sha256": "dcc74643dddbd3490387ff054193697a4ece7699c93055e42b9c257a0fef5aa1",
+  "overrides": [
+    {
+      "command": "save",
+      "chord": "CtrlOrCmd+S",
+      "reason": "draw-local persists the active local document; the embedded save action is not the source of truth"
+    }
+  ],
+  "reviewedGaps": [
+    "Tool-key handlers and the Help dialog are reviewed when adding a draw-local chord."
+  ]
+}
