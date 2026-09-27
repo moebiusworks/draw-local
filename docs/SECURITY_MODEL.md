@@ -19,6 +19,12 @@ draw-local is intended as a local, single-user developer tool, not a public mult
   owner record while holding the new OS lock. Linux process start time helps
   distinguish reused legacy PIDs. Stop older running versions before upgrading;
   their legacy lock protocol cannot coordinate with the new OS lock.
+  The lock binding is required at install time. Supported targets are macOS,
+  Windows, and glibc Linux on x64/ARM64; other targets attempt a best-effort
+  source build during installation. Lock acquisition failures abort a write
+  rather than silently proceeding without cross-process exclusion. This
+  coordination assumes a local filesystem and does not guarantee cross-host
+  exclusion on network filesystems.
 - Directory registration canonicalizes an existing readable directory. Directory browsing is read-only; state-changing API requests also validate a same-loopback Origin when one is supplied.
 - The browser folder picker omits hidden directories and does not expose operating-system sensitive roots by default. This includes Linux system roots, macOS system and user Library paths, and Windows system/program/recovery roots plus per-user AppData, including mounted Windows volumes. This limits accidental disclosure in the UI; registered projects still use their explicit canonical paths.
 - Project explorer expansion reads only the immediate children of an explicitly registered root or already validated relative directory. It rejects absolute and parent-traversal paths, omits hidden and symbolic-link entries, and never recursively scans unopened folders.

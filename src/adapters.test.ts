@@ -33,6 +33,67 @@ async function freePort() {
   return address.port;
 }
 
+test("HTTP draft autosave remains readable after a server restart", async () => {
+  const base = await fs.mkdtemp(path.join(os.tmpdir(), "draw-local-restart-"));
+  const root = path.join(base, "project");
+  const port = await freePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  let child: ReturnType<typeof spawn> | undefined;
+  const start = async () => {
+    child = spawn(process.execPath, ["--import", "tsx", "src/server.ts"], {
+      cwd: process.cwd(),
+      env: { ...envFor(base, root), DRAW_LOCAL_PORT: String(port) },
+      stdio: "ignore",
+    });
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if (child.exitCode !== null) throw new Error("HTTP server exited early.");
+      if (
+        await fetch(`${baseUrl}/api/projects`)
+          .then((response) => response.ok)
+          .catch(() => false)
+      )
+        return;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    throw new Error("HTTP server did not start.");
+  };
+  const stop = async () => {
+    if (child && child.exitCode === null) {
+      const exited = new Promise<void>((resolve) =>
+        child!.once("exit", () => resolve()),
+      );
+      child.kill();
+      await exited;
+    }
+    child = undefined;
+  };
+  try {
+    await start();
+    const created = await fetch(`${baseUrl}/api/drafts`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ document: doc }),
+    });
+    assert.equal(created.status, 201);
+    const { id, revision } = await created.json();
+    const updated = { ...doc, appState: { persistedAfterRestart: true } };
+    const saved = await fetch(`${baseUrl}/api/draft/${id}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ document: updated, revision }),
+    });
+    assert.equal(saved.status, 200);
+    await stop();
+    await start();
+    const reopened = await fetch(`${baseUrl}/api/draft/${id}`);
+    assert.equal(reopened.status, 200);
+    assert.deepEqual((await reopened.json()).document, updated);
+  } finally {
+    await stop();
+    await fs.rm(base, { recursive: true, force: true });
+  }
+});
+
 test("HTTP Git contract accepts a visible-path body beyond header limits", async () => {
   const base = await fs.mkdtemp(path.join(os.tmpdir(), "draw-local-http-"));
   const root = path.join(base, "project");

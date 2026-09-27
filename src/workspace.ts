@@ -4,7 +4,12 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { Lock, openLock } from "@lickle/lock";
+import {
+  constants as lockConstants,
+  flockSync,
+  lockFileExSync,
+  unlockFileExSync,
+} from "fs-ext-extra-prebuilt";
 
 const execFileAsync = promisify(execFile);
 const extensions = new Set([".excalidraw", ".excalidrawlib"]);
@@ -168,15 +173,39 @@ export class Workspace {
     const locksPath = path.join(path.dirname(this.configPath), "locks");
     const name = createHash("sha256").update(identity).digest("hex");
     await fs.mkdir(locksPath, { recursive: true, mode: 0o700 });
-    const guard = await openLock(
+    const guard = await fs.open(
       path.join(locksPath, `${name}.oslock`),
-      Lock.Exclusive,
-      {
-        timeout: 10_000,
-      },
+      "a+",
+      0o600,
     );
     const deadline = Date.now() + 10_000;
+    let acquired = false;
     try {
+      while (!acquired) {
+        try {
+          if (process.platform === "win32")
+            lockFileExSync(
+              guard.fd,
+              lockConstants.LOCKFILE_EXCLUSIVE_LOCK |
+                lockConstants.LOCKFILE_FAIL_IMMEDIATELY,
+              0,
+              0,
+              1,
+              0,
+            );
+          else flockSync(guard.fd, "exnb");
+          acquired = true;
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException).code;
+          if (
+            !["EAGAIN", "EWOULDBLOCK", "EACCES", "EBUSY"].includes(code ?? "")
+          )
+            throw error;
+          if (Date.now() >= deadline)
+            throw new Error("Workspace is busy in another draw-local process.");
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+      }
       while (!(await this.legacyLockIsGone(path.join(locksPath, name)))) {
         if (Date.now() >= deadline)
           throw new Error("Workspace is busy in another draw-local process.");
@@ -184,7 +213,15 @@ export class Workspace {
       }
       return await action();
     } finally {
-      await guard.drop();
+      try {
+        if (acquired) {
+          if (process.platform === "win32")
+            unlockFileExSync(guard.fd, 0, 0, 1, 0);
+          else flockSync(guard.fd, "un");
+        }
+      } finally {
+        await guard.close();
+      }
     }
   }
   private async withWorkspaceLock<T>(

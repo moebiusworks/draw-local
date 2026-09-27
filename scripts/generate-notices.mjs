@@ -77,16 +77,6 @@ async function upstreamNotice(pkg) {
 async function sourceFromInstalledPackages() {
   const source = {};
   for (const pkg of entries) {
-    if (pkg.name.startsWith("@lickle/lock-")) {
-      const parent = source[`@lickle/lock@${pkg.version}`];
-      if (!parent)
-        throw new Error(`Missing parent license for ${identity(pkg)}.`);
-      source[identity(pkg)] = {
-        ...parent,
-        notices: parent.notices.map((notice) => ({ ...notice })),
-      };
-      continue;
-    }
     const manifestText = await fs.readFile(
       path.join(pkg.location, "package.json"),
       "utf8",

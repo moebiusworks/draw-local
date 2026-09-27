@@ -1,6 +1,13 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { execFile } from "node:child_process";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -16,6 +23,260 @@ const drawing = {
 
 test.beforeEach(async () => {
   await rm("/tmp/draw-local-playwright", { recursive: true, force: true });
+});
+
+async function drawRectangle(page: Page) {
+  await expect(page.locator(".excalidraw")).toBeVisible();
+  await page.locator('label:has([data-testid="toolbar-rectangle"])').click();
+  const canvas = page.locator(".excalidraw canvas").first();
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("Editor canvas was not laid out");
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 80, y + 60, { steps: 4 });
+  await page.mouse.up();
+}
+
+async function savedElements(page: Page, projectId: string, file: string) {
+  const response = await page.request.get(
+    `/api/project/file?projectId=${encodeURIComponent(projectId)}&path=${encodeURIComponent(file)}`,
+  );
+  expect(response.ok()).toBeTruthy();
+  return (
+    (await response.json()).document as { elements: Array<{ id: string }> }
+  ).elements;
+}
+
+function projectFile(page: Page, projectId: string, file: string) {
+  return page
+    .locator("div.project-root")
+    .filter({
+      has: page.locator(
+        `button[data-project-id="${projectId}"][data-project-path=""]`,
+      ),
+    })
+    .locator("button.file")
+    .filter({ hasText: file });
+}
+
+test("a draft autosaves an editor change and survives browser restart", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await expect(page).toHaveURL(/draft=/);
+  const id = new URL(page.url()).searchParams.get("draft")!;
+  await drawRectangle(page);
+  await expect
+    .poll(async () => {
+      const response = await page.request.get(`/api/draft/${id}`);
+      return ((await response.json()).document as typeof drawing).elements
+        .length;
+    })
+    .toBe(1);
+  await page.reload();
+  await expect(page.locator(".excalidraw")).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("Saved");
+  await expect(page).toHaveURL(new RegExp(`draft=${id}`));
+  await expect
+    .poll(async () => {
+      const response = await page.request.get(`/api/draft/${id}`);
+      return ((await response.json()).document as typeof drawing).elements
+        .length;
+    })
+    .toBe(1);
+});
+
+test("a pending save stays with its project when another project has the same path", async ({
+  page,
+}) => {
+  const secondRoot = "/tmp/draw-local-playwright/second-project";
+  await mkdir(secondRoot, { recursive: true });
+  const registered = await page.request.post("/api/projects", {
+    data: { path: secondRoot, name: "Second" },
+  });
+  expect(registered.ok()).toBeTruthy();
+  const second = await registered.json();
+  for (const projectId of ["default", second.id]) {
+    const response = await page.request.post(
+      `/api/project/file?projectId=${projectId}&path=shared.excalidraw`,
+      { data: { document: drawing } },
+    );
+    expect(response.ok()).toBeTruthy();
+  }
+  await page.goto("/");
+  const firstRoot = page.locator(
+    'button[data-project-id="default"][data-project-path=""]',
+  );
+  await firstRoot.click();
+  await projectFile(page, "default", "shared.excalidraw").click();
+  await expect(page).toHaveURL(/project=default/);
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let reached!: () => void;
+  const intercepted = new Promise<void>((resolve) => {
+    reached = resolve;
+  });
+  await page.route("**/api/project/file?*", async (route) => {
+    if (
+      route.request().method() === "PUT" &&
+      new URL(route.request().url()).searchParams.get("projectId") === "default"
+    ) {
+      reached();
+      await pending;
+    }
+    await route.continue();
+  });
+  await drawRectangle(page);
+  await intercepted;
+  const secondRootButton = page.locator(
+    `button[data-project-id="${second.id}"][data-project-path=""]`,
+  );
+  await secondRootButton.click();
+  await projectFile(page, second.id, "shared.excalidraw").click();
+  await expect(page).toHaveURL(new RegExp(`project=${second.id}`));
+  await drawRectangle(page);
+  release();
+  await expect
+    .poll(
+      async () =>
+        (await savedElements(page, "default", "shared.excalidraw")).length,
+    )
+    .toBe(1);
+  await expect
+    .poll(
+      async () =>
+        (await savedElements(page, second.id, "shared.excalidraw")).length,
+    )
+    .toBe(1);
+  const firstElements = await savedElements(
+    page,
+    "default",
+    "shared.excalidraw",
+  );
+  const secondElements = await savedElements(
+    page,
+    second.id,
+    "shared.excalidraw",
+  );
+  expect(firstElements[0]?.id).not.toBe(secondElements[0]?.id);
+});
+
+test("a failed draft autosave keeps the editor content available for first Save", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await expect(page).toHaveURL(/draft=/);
+  const id = new URL(page.url()).searchParams.get("draft")!;
+  let failed = false;
+  await page.route(`**/api/draft/${id}`, async (route) => {
+    if (!failed && route.request().method() === "PUT") {
+      failed = true;
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Disk unavailable" }),
+      });
+    } else await route.continue();
+  });
+  await drawRectangle(page);
+  await expect(page.getByRole("status")).toContainText(
+    "Save failed: Disk unavailable",
+  );
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Save drawing" });
+  await dialog
+    .getByRole("textbox", { name: "Filename" })
+    .fill("recovered.excalidraw");
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(
+    (await savedElements(page, "default", "recovered.excalidraw")).length,
+  ).toBe(1);
+});
+
+test("an external edit creates a recoverable draft without overwriting the project", async ({
+  page,
+}) => {
+  const target = path.join(testRoot, "conflict.excalidraw");
+  const created = await page.request.post(
+    "/api/project/file?projectId=default&path=conflict.excalidraw",
+    {
+      data: { document: drawing },
+    },
+  );
+  expect(created.ok()).toBeTruthy();
+  await page.goto("/?project=default&file=conflict.excalidraw");
+  await expect(page.getByRole("status")).toContainText("Saved");
+  await writeFile(
+    target,
+    JSON.stringify({ ...drawing, appState: { external: true } }),
+  );
+  await drawRectangle(page);
+  await expect(page.getByRole("status")).toContainText(
+    "Save conflicted: recovery draft",
+  );
+  const status = await page.getByRole("status").innerText();
+  const id = status.match(/recovery draft ([a-f\d-]+)/)?.[1];
+  expect(id).toBeTruthy();
+  const response = await page.request.get(`/api/draft/${id}`);
+  expect(response.ok()).toBeTruthy();
+  expect(
+    ((await response.json()).document as typeof drawing).elements,
+  ).toHaveLength(1);
+  expect(
+    (JSON.parse(await readFile(target, "utf8")) as typeof drawing).appState,
+  ).toEqual({ external: true });
+  await page.getByRole("button", { name: /Untitled-/ }).click();
+  await expect(page).toHaveURL(new RegExp(`draft=${id}`));
+});
+
+test("first Save transfers a draft to a project on another filesystem", async ({
+  page,
+}) => {
+  test.skip(
+    process.platform !== "linux",
+    "The test uses Linux tmpfs for a second filesystem",
+  );
+  const projectRoot = await mkdtemp("/dev/shm/draw-local-cross-fs-");
+  try {
+    test.skip(
+      (await stat(projectRoot)).dev === (await stat("/tmp")).dev,
+      "No second filesystem available",
+    );
+    const registered = await page.request.post("/api/projects", {
+      data: { path: projectRoot, name: "Cross filesystem" },
+    });
+    expect(registered.ok()).toBeTruthy();
+    const project = await registered.json();
+    await page.goto("/");
+    await page.getByRole("button", { name: "New", exact: true }).click();
+    await expect(page).toHaveURL(/draft=/);
+    const id = new URL(page.url()).searchParams.get("draft")!;
+    await drawRectangle(page);
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Save drawing" });
+    await dialog
+      .getByRole("combobox", { name: "Project" })
+      .selectOption(project.id);
+    await dialog
+      .getByRole("textbox", { name: "Filename" })
+      .fill("transferred.excalidraw");
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`project=${project.id}`));
+    expect(
+      (await savedElements(page, project.id, "transferred.excalidraw")).length,
+    ).toBe(1);
+    expect((await page.request.get(`/api/draft/${id}`)).status()).toBe(400);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
 });
 
 test("New creates a recoverable draft and Ctrl+S opens first-save", async ({
