@@ -18,7 +18,7 @@ draw-local keeps ordinary `.excalidraw` files as the source of truth. It is aime
 
 ## Quick start
 
-Requires Node.js 22+, npm, and Git if you want Git integration.
+Requires Node.js 22.12+ or 24 LTS, npm, and Git if you want Git integration.
 Supported targets are macOS, Windows, and glibc Linux on x64 and ARM64. The
 workspace lock has prebuilt binaries for these targets. Other systems
 (including musl Linux) are best-effort source builds and need a working C++
@@ -26,6 +26,8 @@ build toolchain and Python during `npm install`. If the binding cannot be
 loaded or built, installation fails rather than leaving an application that
 cannot start. Use a local filesystem for projects and application data;
 cross-host lock coordination on network filesystems is not guaranteed.
+The native lock dependency and its review criteria are recorded in
+`docs/DEPENDENCY_REVIEW.md`.
 
 ```bash
 git clone https://github.com/moebiusworks/draw-local.git

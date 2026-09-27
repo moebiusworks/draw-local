@@ -19,35 +19,42 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - run: npm install
+          node-version: 24
+      - run: npm ci
       - run: npm run test:lock-smoke
       - run: npx playwright install chromium
       - run: npm run test:browser:shortcuts
   lock-platforms:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-24.04-arm, macos-15-intel, windows-11-arm]
+        node: [22, 24]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - run: npm install
+          node-version: ${{ matrix.node }}
+      - run: npm ci
       - run: npm run test:lock-smoke
   check:
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - run: npm install
+          node-version: ${{ matrix.node }}
+      - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run check
       - run: npm run notices
       - uses: actions/upload-artifact@v4
+        if: matrix.node == 24
         with:
           name: third-party-notices
           path: THIRD_PARTY_NOTICES.generated.md

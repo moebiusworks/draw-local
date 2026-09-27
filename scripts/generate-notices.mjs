@@ -32,6 +32,12 @@ const upstream = (pkg) => {
     return ["evanw", "esbuild", "main", "LICENSE.md"];
   if (pkg.name.startsWith("@rolldown/"))
     return ["rolldown", "rolldown", "main", "LICENSE"];
+  if (pkg.name.startsWith("@typescript/typescript-"))
+    return ["microsoft", "TypeScript", "main", "LICENSE.txt"];
+  if (pkg.name.startsWith("lightningcss-"))
+    return ["parcel-bundler", "lightningcss", "master", "LICENSE"];
+  if (pkg.name === "fsevents")
+    return ["fsevents", "fsevents", "master", "LICENSE"];
   if (pkg.name === "emoji-regex")
     return ["mathiasbynens", "emoji-regex", "main", "LICENSE-MIT.txt"];
   if (pkg.name === "react-remove-scroll-bar")
@@ -67,7 +73,14 @@ async function upstreamNotice(pkg) {
           if (!section) throw new Error(`No License section in ${url}.`);
           text = section[1];
         }
-        return { name: file, text: text.trim(), source: url };
+        return {
+          name: file,
+          text: text
+            .trim()
+            .replaceAll("\r\n", "\n")
+            .replace(/[ \t]+$/gm, ""),
+          source: url,
+        };
       })(),
     );
   }
@@ -77,10 +90,26 @@ async function upstreamNotice(pkg) {
 async function sourceFromInstalledPackages() {
   const source = {};
   for (const pkg of entries) {
-    const manifestText = await fs.readFile(
-      path.join(pkg.location, "package.json"),
-      "utf8",
-    );
+    const manifestText = await fs
+      .readFile(path.join(pkg.location, "package.json"), "utf8")
+      .catch((error) => {
+        if (error.code === "ENOENT") return undefined;
+        throw error;
+      });
+    if (!manifestText) {
+      const locked = lockfile.packages[pkg.location];
+      if (!locked?.optional)
+        throw new Error(`Missing installed package ${identity(pkg)}.`);
+      const spec = upstream(pkg);
+      if (!spec || !locked.license)
+        throw new Error(`No notice metadata for ${identity(pkg)}.`);
+      source[identity(pkg)] = {
+        license: locked.license,
+        repository: `https://github.com/${spec[0]}/${spec[1]}`,
+        notices: [await upstreamNotice(pkg)],
+      };
+      continue;
+    }
     const manifest = JSON.parse(manifestText);
     const names = (await fs.readdir(pkg.location, { withFileTypes: true }))
       .filter((entry) => entry.isFile() && noticeName.test(entry.name))

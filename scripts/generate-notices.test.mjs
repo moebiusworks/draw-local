@@ -32,3 +32,19 @@ test("every locked dependency has authentic, traceable notice text", async () =>
     }
   }
 });
+
+test("locked packages absent on this platform are optional", async () => {
+  const lock = JSON.parse(await fs.readFile("package-lock.json", "utf8"));
+  for (const [location, pkg] of Object.entries(lock.packages)) {
+    if (!location || !pkg.version || pkg.link) continue;
+    const installed = await fs
+      .access(location)
+      .then(() => true)
+      .catch((error) => {
+        if (error.code === "ENOENT") return false;
+        throw error;
+      });
+    if (!installed)
+      assert.equal(pkg.optional, true, `${location} is not installed`);
+  }
+});
